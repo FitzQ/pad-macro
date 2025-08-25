@@ -11,7 +11,7 @@
 
 static int initialized = 0;
 static HiddbgHdlsSessionId hdlsSessionId = {0};
-static alignas(0x1000) u8 workmem[0x4000];
+static alignas(0x1000) u8 workmem[0x1000];
 static HiddbgHdlsStateList stateList = {0};
 
 Result controllerInitialize()
