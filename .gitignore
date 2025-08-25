@@ -1,0 +1,17 @@
+sysmodule/build
+sysmodule/out
+sysmodule/.vscode
+sysmodule/.build-tools.cson
+
+sysmodule/*.kip
+sysmodule/*.elf
+
+
+overlay/build
+overlay/out
+overlay/.vscode
+overlay/.build-tools.cson
+
+overlay/*.nacp
+overlay/*.elf
+overlay/*.ovl
