@@ -16,3 +16,5 @@ overlay/.build-tools.cson
 overlay/*.nacp
 overlay/*.elf
 overlay/*.ovl
+
+out
