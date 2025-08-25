@@ -213,30 +213,22 @@ static void saveConfig()
     // write macros
     for (const auto &m : g_config.macros)
     {
-        iniString += u64ToHexString(m.key_mask) + "=" + m.file_path + "\n";
+        if (m.key_mask == 0 || m.file_path.empty())
+            continue;
+        iniString += (u64ToHexString(m.key_mask) + "=" + m.file_path + "\n");
     }
 
     Result rc = fsFileWrite(&fileConfig, 0, iniString.c_str(), iniString.length(), FsWriteOption_Flush);
-    (void)rc; // optionally handle rc/log
-}
-
-// 按键组合录入
-u64 g_recording_mask = 0;
-bool g_is_recording = false;
-enum class RecordingTarget
-{
-    None,
-    RecorderMask,
-    Macro
-};
-RecordingTarget g_recording_target = RecordingTarget::None;
-int g_ignore_frames = 0; // frames to ignore input immediately after starting recording
-
-// 文件选择模拟（实际可用自定义UI或预设路径）
-std::string selectFile()
-{
-    // TODO: 可扩展为文件浏览器，这里简单返回一个示例路径
-    return "sdmc:/switch/pad-macro/example.bin";
+    if (R_FAILED(rc)) {
+    // 写失败：记录/处理
+    // log_error("fsFileWrite failed: 0x%x", rc);
+    } else {
+        // 确保文件大小和内容一致（防止旧尾部残留）
+        rc = fsFileSetSize(&fileConfig, (s64)iniString.length());
+        if (R_FAILED(rc)) {
+            // log_error("fsFileSetSize failed: 0x%x", rc);
+        }
+    }
 }
 
 const std::array<std::string, 32> KEY_COMBO_LIST = {
@@ -436,16 +428,36 @@ public:
             list->addItem(macroListItem);
         }
         // 新增宏映射
-        // auto *addMacroItem = new tsl::elm::ListItem("Add Mapping", "+");
-        // addMacroItem->setClickListener([this](u64 keys)
-        //                                {
-        //     if (keys & HidNpadButton_A) {
-        //         // open recording gui
-        //         tsl::changeTo<GuiKeyComboList>( );
-        //         return true;
-        //     }
-        //     return false; });
-        // list->addItem(addMacroItem);
+        tsl::elm::ListItem *addMacroItem = new tsl::elm::ListItem("Add Mapping", "+");
+        addMacroItem->setClickListener([list, addMacroItem](u64 keys) mutable {
+            if (keys & HidNpadButton_A) {
+                g_config.macros.push_back(MacroItem{hexStringTo64("0x00000000"), "/switch/pad-macro/macros/latest.bin"});
+                size_t idx = g_config.macros.size() - 1;
+                tsl::elm::ListItem *newMacroListItem = new tsl::elm::ListItem("Y to pick macro", "A to pick combo");
+                newMacroListItem->setClickListener([list, newMacroListItem, idx](u64 keys) {
+                        // edit macro file
+                        if (keys & HidNpadButton_A) {
+                            tsl::changeTo<GuiKeyComboList>(newMacroListItem, &g_config.macros[idx].key_mask);
+                            return true;
+                        }
+                        // edit btn mask
+                        if (keys & HidNpadButton_Y) {
+                            tsl::changeTo<GuiMacroFileList>(newMacroListItem, &g_config.macros[idx].file_path);
+                            return true;
+                        }
+                        // Delete
+                        if (keys & HidNpadButton_X) {
+                            g_config.macros.erase(g_config.macros.begin() + idx);
+                            saveConfig();
+                            list->removeItem(newMacroListItem);
+                            return true;
+                        }
+                        return false; });
+                list->addItem(newMacroListItem, 0, list->getIndexInList(addMacroItem));
+                return true;
+            }
+            return false; });
+        list->addItem(addMacroItem);
 
         frame->setContent(list);
         return frame;

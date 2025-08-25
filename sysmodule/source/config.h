@@ -4,6 +4,7 @@
 
 // Load config from sdmc:/config/pad-macro/config.ini
 bool loadConfig(void);
+void freeConfig(void);
 
 // [pad] accessors
 u64 getRecordButtonMask(void);

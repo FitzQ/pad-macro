@@ -169,9 +169,9 @@ $(BUILD):
 	@[ -d $@ ] || mkdir -p $@
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
 	@rm -rf out
-	@mkdir -p out/switch/.overlay
-	@cp -rf lang out/switch/.overlay
-	@mv -f overlay.ovl out/switch/.overlay/pad-macro.ovl
+	@mkdir -p out/switch/.overlays
+	@cp -rf lang out/switch/.overlays
+	@mv -f overlay.ovl out/switch/.overlays/pad-macro.ovl
 	@rm -f overlay.nacp overlay.elf
 #---------------------------------------------------------------------------------
 clean:

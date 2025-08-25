@@ -10,7 +10,7 @@
 #include "player.h"
 
 static Thread g_playThread;         // 线程
-static alignas(0x1000) u8 playThreadStack[0x4000]; // 64KB 栈
+static alignas(0x1000) u8 playThreadStack[0x4000]; // 16KB 栈
 static bool g_playing = false;     // 正在播放
 
 // Each frame: buttons(u64 LE), l.x(s32 LE), l.y(s32 LE), r.x(s32 LE), r.y(s32 LE)

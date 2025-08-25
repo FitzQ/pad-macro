@@ -114,6 +114,7 @@ bool loadConfig(void) {
     free(buf);
     return true;
 }
+void freeConfig(void) { reset_state(); }
 
 u64 getRecordButtonMask(void) { return recorder_btn; }
 u64 getPlayLatestButtonMask(void) { return play_latest_btn; }

@@ -77,7 +77,7 @@ static char *cur_time() {
 }
 
 static void log_write(const char *level, const char *file, int line, const char *fmt, va_list args) {
-    // return; // --- IGNORE ---
+    return; // --- IGNORE ---
     if (!log_mutex_inited) { mutexInit(&log_mutex); log_mutex_inited = true; }
     mutexLock(&log_mutex);
     netlog_try_init();

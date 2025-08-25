@@ -22,7 +22,7 @@
     })
 
 // Size of the inner heap (adjust as necessary).
-#define INNER_HEAP_SIZE 0x200000 // 2MB heap size
+#define INNER_HEAP_SIZE 0x40000 // 256KB heap size
 
 #ifdef __cplusplus
 extern "C"
@@ -85,19 +85,19 @@ extern "C"
         R_ASSERT(fsdevMountSdmc());
 
         // Initialize sockets before starting our module so early logs can be sent over UDP.
-        static const SocketInitConfig socketInitConfig = {
-            .tcp_tx_buf_size = 0x800,
-            .tcp_rx_buf_size = 0x800,
-            .tcp_tx_buf_max_size = 0x25000,
-            .tcp_rx_buf_max_size = 0x25000,
+        // static const SocketInitConfig socketInitConfig = {
+        //     .tcp_tx_buf_size = 0x800,
+        //     .tcp_rx_buf_size = 0x800,
+        //     .tcp_tx_buf_max_size = 0x25000,
+        //     .tcp_rx_buf_max_size = 0x25000,
 
-            // Enable UDP for net logging
-            .udp_tx_buf_size = 0x2400,
-            .udp_rx_buf_size = 0x2400,
+        //     // Enable UDP for net logging
+        //     .udp_tx_buf_size = 0x2400,
+        //     .udp_rx_buf_size = 0x2400,
 
-            .sb_efficiency = 1,
-        };
-        socketInitialize(&socketInitConfig);
+        //     .sb_efficiency = 1,
+        // };
+        // socketInitialize(&socketInitConfig);
 
         // Add other services you want to use here.
 
@@ -118,7 +118,7 @@ extern "C"
         log_info("hiddbgExited");
         hidExit(); // Enable this if you want to use HID.
         log_info("hidExited");
-        socketExit();
+        // socketExit();
         fsdevUnmountAll(); // Disable this if you don't want to use the SD card filesystem.
         fsExit();          // Disable this if you don't want to use the filesystem.
         timeExit();        // Enable this if you want to use time.

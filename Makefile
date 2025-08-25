@@ -4,9 +4,9 @@ all: overlay sysmodule
 
 overlay:
 	$(MAKE) -C overlay $(MAKEFLAGS)
-	@rm -rf out/switch/.overlay
+	@rm -rf out/switch/.overlays
 	@mkdir -p out/switch
-	@mv -f overlay/out/switch/.overlay out/switch
+	@mv -f overlay/out/switch/.overlays out/switch
 
 sysmodule:
 	$(MAKE) -C sysmodule $(MAKEFLAGS)

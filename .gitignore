@@ -2,6 +2,10 @@ sysmodule/build
 sysmodule/out
 sysmodule/.vscode
 sysmodule/.build-tools.cson
+sysmodule/*.npdm
+sysmodule/*.nsp
+sysmodule/*.nso
+sysmodule/*.elf
 
 sysmodule/*.kip
 sysmodule/*.elf

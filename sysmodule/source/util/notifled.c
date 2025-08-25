@@ -68,9 +68,30 @@ void initPad() {
 }
 
 void setLedPattern(LedPatternType type) {
-    initPad();
+    if (padId.id == 0) {
+        initPad();
+    }
     initLedPattern(type);
-    hidsysSetNotificationLedPattern(&led_pattern, padId);
+    if (padId.id == 0) {
+        log_error("No pad available to set LED pattern");
+        return;
+    }
+    Result rc = hidsysSetNotificationLedPattern(&led_pattern, padId);
+    if (R_FAILED(rc)) {
+        log_error("hidsysSetNotificationLedPattern failed: 0x%x, retrying initPad()", rc);
+        // 可能是手柄断开，重试发现并再试一次
+        initPad();
+        if (padId.id == 0) {
+            log_error("Retry failed: still no pad");
+            return;
+        }
+        rc = hidsysSetNotificationLedPattern(&led_pattern, padId);
+        if (R_FAILED(rc)) {
+            log_error("Retry also failed: 0x%x", rc);
+            // 将 padId 清零，避免后续误用
+            padId.id = 0;
+        }
+    }
 }
 
 // ------------------------ audio notification ------------------------

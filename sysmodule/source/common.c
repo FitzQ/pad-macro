@@ -3,14 +3,15 @@
 #define LATEST_MACRO_PATH "sdmc:/switch/pad-macro/macros/latest.bin"
 
 static Thread listen_thread;         // 监听线程
-static alignas(0x1000) u8 listen_thread_stack[0x4000]; // 64KB 栈
+static alignas(0x1000) u8 listen_thread_stack[0x4000]; // 16KB 栈
 static bool recording = false;      // 录制状态
 static bool playing = false;        // 播放状态
+volatile bool exiting = true;
 // 监听线程
 static void listenThreadFun(void *arg) {
     (void)arg;
     log_info("listen thread started");
-    while (true) {
+    while (exiting) {
         HiddbgHdlsState l = {0}, r = {0};
         Result rc = readState(&l, &r);
         char *macro_path = NULL;
@@ -66,6 +67,8 @@ Result padMacroInitialize() {
 
 void padMacroFinalize() {
     log_info("pad macro finalize");
+    exiting = false;
+    freeConfig();
     controllerFinalize();
     if (listen_thread.handle) {
         threadWaitForExit(&listen_thread);

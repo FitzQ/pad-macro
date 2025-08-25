@@ -15,7 +15,7 @@
 static bool g_recording = false;     // 正在录制
 static Mutex g_recorderMutex;        // 互斥
 static Thread g_recordThread;         // 手柄采集线程
-static alignas(0x1000) u8 recordThreadStack[0x4000]; // 64KB 栈
+static alignas(0x1000) u8 recordThreadStack[0x4000]; // 16KB 栈
 
 #define RECORDER_FRAME_SIZE 24
 #define LATEST_FILE_PATH "sdmc:/switch/pad-macro/macros/latest.bin"
