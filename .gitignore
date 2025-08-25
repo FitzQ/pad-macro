@@ -9,7 +9,7 @@ sysmodule/*.elf
 
 overlay/build
 overlay/out
-# overlay/libtesla/*
+overlay/libtesla/*
 overlay/.vscode
 overlay/.build-tools.cson
 
