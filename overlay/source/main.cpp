@@ -68,6 +68,23 @@ std::string u64ToHexString(u64 value)
     return std::string(buf);
 }
 
+static const char* stringToGlyph(const std::string &value) {
+    for (const tsl::impl::KeyInfo &keyInfo : tsl::impl::KEYS_INFO) {
+        if (strcasecmp(value.c_str(), keyInfo.name) == 0)
+            return keyInfo.glyph;
+    }
+    return nullptr;
+}
+static std::string comboStringToGlyph(const std::string &value) {
+    std::string glyphCombo;
+    for (std::string key : tsl::hlp::split(value, '+')) {
+        if (!glyphCombo.empty())
+            glyphCombo += "\u002B"; // \u002B
+        glyphCombo += stringToGlyph(key);
+    }
+    return glyphCombo;
+}
+
 bool isUsedCombo(u64 mask)
 {
     // treat a combo as "used" when it equals, contains, or is contained by any existing combo
@@ -325,14 +342,14 @@ public:
                 continue;
 
             // show combo name and a select label on the right (two-arg constructor)
-            auto *listItem = new tsl::elm::ListItem(KEY_COMBO_LIST[i], (candidate == *mask) ? std::string("Selected") : std::string(""));
+            auto *listItem = new tsl::elm::ListItem(comboStringToGlyph(KEY_COMBO_LIST[i]), (candidate == *mask) ? std::string("\u25CF") : std::string(""));
 
             // capture listItem and candidate so the lambda can update the UI element
             listItem->setClickListener([this, i, listItem, candidate](u64 keys) {
                 if (keys & HidNpadButton_A) {
                     *this->mask = candidate;
                     saveConfig();
-                    this->item->setValue(maskToComboString(*this->mask));
+                    this->item->setValue(comboStringToGlyph(maskToComboString(*this->mask)));
                     tsl::goBack();
                     return true;
                 }
@@ -378,7 +395,7 @@ public:
         });
         list->addItem(playerEnableToggleListItem);
         // recorder_btn 按键组合
-        recorderBtnListItem = new tsl::elm::ListItem("recorder_btn", maskToComboString(g_config.pad.recorder_btn));
+        recorderBtnListItem = new tsl::elm::ListItem("recorder_btn", comboStringToGlyph(maskToComboString(g_config.pad.recorder_btn)));
         recorderBtnListItem->setClickListener([this](u64 keys) {
             if (keys & HidNpadButton_A) {
                 // open recording gui (pass address so Gui can modify the value)
@@ -388,7 +405,7 @@ public:
             return false; });
         list->addItem(recorderBtnListItem);
         // play_latest_btn 按键组合
-        playLatestBtnListItem = new tsl::elm::ListItem("play_latest_btn", maskToComboString(g_config.pad.play_latest_btn));
+        playLatestBtnListItem = new tsl::elm::ListItem("play_latest_btn", comboStringToGlyph(maskToComboString(g_config.pad.play_latest_btn)));
         playLatestBtnListItem->setClickListener([this](u64 keys) {
             if (keys & HidNpadButton_A) {
                 // open recording gui (pass address so Gui can modify the value)
