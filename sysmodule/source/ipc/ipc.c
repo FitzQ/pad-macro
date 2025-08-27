@@ -9,6 +9,7 @@
 #define R_THROW(x) do { Result r = x; if (R_FAILED(r)) { fatalThrow(r); }  } while(0)
 
 #define CMD_UPDATE_CONF 1
+#define CMD_EXIT 999
 
 static Handle handles[2];
 static SmServiceName serverName;
@@ -17,6 +18,7 @@ static Handle* const serverHandle = &handles[0];
 static Handle* const clientHandle = &handles[1];
 
 static bool isClientConnected = false;
+static volatile bool exiting = true;
 
 static void StartServer()
 {
@@ -97,6 +99,11 @@ static bool HandleCommand(const Request* req)
 			log_info("Configuration updated");
 			WriteResponseToTLS(0);
 			return false;
+		case CMD_EXIT:
+			log_info("Exiting...");
+			exiting = false;
+			WriteResponseToTLS(0);
+			return true;
 		default:
 			WriteResponseToTLS(1);
 			return true;
@@ -165,7 +172,7 @@ void IpcThread()
 {
 	StartServer();
 
-	while (1)
+	while (exiting)
 		WaitAndProcessRequest();
 
 	StopServer();

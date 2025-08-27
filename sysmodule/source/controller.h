@@ -13,7 +13,7 @@
 // void emit_home_button();
 // void emit_capture_button();
 HiddbgHdlsSessionId* getHdlsSessionId();
-// Result controllerInitialize();
-// void controllerFinalize();
+Result controllerInitialize();
+Result controllerExit();
 Result readState(HiddbgHdlsState *l, HiddbgHdlsState *r);
 Result writeState(const HiddbgHdlsState *l, const HiddbgHdlsState *r);

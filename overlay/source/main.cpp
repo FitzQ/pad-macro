@@ -17,6 +17,40 @@
 
 #define PROGRAM_NAME "pad-macro"
 #define PROGRAM_ID 0x0100000000C0FFEE
+#define CMD_UPDATE_CONF 1
+#define CMD_EXIT 999
+
+
+// 配置文件路径
+// path relative to the opened SdCard FsFileSystem (do NOT include leading '/').
+static const char *CONFIG_FILE = "/config/pad-macro/config.ini";
+static const char *MACROS_DIR = "/switch/pad-macro/macros";
+
+// 配置数据结构
+struct PadConfig
+{
+    bool recorder_enable = false;
+    bool player_enable = false;
+    u64 recorder_btn = 0x0;
+    u64 play_latest_btn = 0x0;
+};
+
+struct MacroItem
+{
+    u64 key_mask = 0;
+    std::string file_path;
+};
+
+struct ConfigData
+{
+    PadConfig pad;
+    std::vector<MacroItem> macros;
+};
+
+static ConfigData g_config;
+static Service g_service;
+static bool g_serviceConnected = false;
+static Mutex programSwitchMutex = 0;
 
 bool isProgramRunning()
 {
@@ -27,8 +61,6 @@ bool isProgramRunning()
     return pid > 0;
 }
 
-
-Mutex programSwitchMutex = 0;
 void startProgram()
 {
     mutexLock(&programSwitchMutex);
@@ -60,46 +92,23 @@ void terminateProgram()
         log_info("program not running");
         return;
     }
-    Result rc = pmshellTerminateProgram(PROGRAM_ID);
+    // Send exit command to the service
+    Result rc = serviceDispatch(&g_service, CMD_EXIT);
     if (R_FAILED(rc)) {
         mutexUnlock(&programSwitchMutex);
-        log_error("pmshellTerminateProgram failed: 0x%x", rc);
+        log_error("serviceDispatch failed: 0x%x", rc);
         return;
     }
+    // Kill the program
+    // Result rc = pmshellTerminateProgram(PROGRAM_ID);
+    // if (R_FAILED(rc)) {
+    //     mutexUnlock(&programSwitchMutex);
+    //     log_error("pmshellTerminateProgram failed: 0x%x", rc);
+    //     return;
+    // }
     mutexUnlock(&programSwitchMutex);
     log_info("terminated program");
 }
-
-
-// 配置文件路径
-// path relative to the opened SdCard FsFileSystem (do NOT include leading '/').
-static const char *CONFIG_FILE = "/config/pad-macro/config.ini";
-static const char *MACROS_DIR = "/switch/pad-macro/macros";
-
-// 配置数据结构
-struct PadConfig
-{
-    bool recorder_enable = false;
-    bool player_enable = false;
-    u64 recorder_btn = 0x0;
-    u64 play_latest_btn = 0x0;
-};
-
-struct MacroItem
-{
-    u64 key_mask = 0;
-    std::string file_path;
-};
-
-struct ConfigData
-{
-    PadConfig pad;
-    std::vector<MacroItem> macros;
-};
-
-ConfigData g_config;
-Service g_service;
-bool g_serviceConnected = false;
 
 // 按键名映射辅助
 std::string maskToComboString(u64 mask)
@@ -315,7 +324,7 @@ static void saveConfig()
     }
 }
     // 通知 sysmodule 配置已更新
-    Result rc = serviceDispatch(&g_service, 1);
+    Result rc = serviceDispatch(&g_service, CMD_UPDATE_CONF);
     if (R_FAILED(rc)) {
         log_error("serviceDispatch failed: 0x%x", rc);
         return;

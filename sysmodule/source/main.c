@@ -20,9 +20,6 @@
 
 #define R_ASSERT(res_expr)({const Result rc = (res_expr);if (R_FAILED(rc)){fatalThrow(rc);}})
 
-void* workmem = NULL;
-size_t workmem_size = 0x10000;
-
 // Size of the inner heap (adjust as necessary).
 
 #if __DEBUG__
@@ -106,22 +103,12 @@ extern "C"
         setsysExit();
         R_ASSERT(notifInitialize(NotifServiceType_System));
         log_info("notifInitialize success");
-        workmem = aligned_alloc(0x1000, workmem_size);
-        if (!workmem)
-        {
-            diagAbortWithResult(MAKERESULT(Module_Libnx, LibnxError_InitFail_HID));
-        }
-        log_info("aligned_alloc success");
-        R_ASSERT(hiddbgAttachHdlsWorkBuffer(getHdlsSessionId(), workmem, workmem_size));
-        log_info("hiddbgAttachHdlsWorkBuffer success");
     }
 
     // Service deinitialization.
     void __appExit(void)
     {
         log_info("__appExit 实际上在关闭这个后台服务时没有被执行");
-        R_ASSERT(hiddbgReleaseHdlsWorkBuffer(*getHdlsSessionId()));
-        free(workmem);
         notifExit();
         hidsysExit();
         hiddbgExit();
@@ -143,5 +130,7 @@ int main(int argc, char *argv[])
     log_info("start loop");
     R_ASSERT(padMacroInitialize());
     IpcThread();
+    /* padMacroExit() returns void - call directly */
+    padMacroExit();
     return 0;
 }

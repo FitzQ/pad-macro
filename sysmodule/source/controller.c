@@ -11,7 +11,7 @@
 
 static int initialized = 0;
 static HiddbgHdlsSessionId hdlsSessionId = {0};
-// static alignas(0x1000) u8 workmem[0x1000]; // 4KB 工作内存
+static alignas(0x1000) u8 workmem[0x1000]; // 4KB 工作内存
 static HiddbgHdlsStateList stateList = {0};
 
 
@@ -20,32 +20,34 @@ HiddbgHdlsSessionId* getHdlsSessionId()
     return &hdlsSessionId;
 }
 
-// Result controllerInitialize()
-// {
-//     log_info("memory allocated for input states");
+Result controllerInitialize()
+{
+    if (initialized == 1) return 1;
+    Result res = hiddbgAttachHdlsWorkBuffer(&hdlsSessionId, workmem, 0x1000);
+    if (R_FAILED(res))
+    {
+        log_error("Failed to attach HDLS work buffer: %d\n", res);
+        hdlsSessionId.id = 0;
+        return res;
+    }
+    log_info("HDLS work buffer attached successfully.\n");
+    initialized = 1;
+    return 0;
+}
 
-//     HiddbgHdlsNpadAssignment state = {0};
-//     memset(&state, 0, sizeof(state));
-//     Result res = hiddbgDumpHdlsNpadAssignmentState(hdlsSessionId, &state);
-//     if (R_FAILED(res))
-//     {
-//         log_error("Failed to dump HDLS Npad Assignment State: %d\n", res);
-//         return -2;
-//     }
-//     initialized = 1;
-//     log_info("Controller initialized successfully");
-//     return 0;
-// }
-
-// void controllerExit()
-// {
-//     if (hdlsSessionId.id)
-//     {
-//         hiddbgReleaseHdlsWorkBuffer(hdlsSessionId);
-//         hdlsSessionId = (HiddbgHdlsSessionId){0};
-//     }
-//     initialized = 0;
-// }
+Result controllerExit()
+{
+    if (initialized == 0) return 0;
+    Result res = hiddbgReleaseHdlsWorkBuffer(hdlsSessionId);
+    if (R_FAILED(res))
+    {
+        log_error("Failed to release HDLS work buffer: %d\n", res);
+        return res;
+    }
+    log_info("HDLS work buffer released successfully.\n");
+    initialized = 0;
+    return 0;
+}
 
 Result readState(HiddbgHdlsState *l, HiddbgHdlsState *r) {
     Result res = hiddbgDumpHdlsStates(hdlsSessionId, &stateList);

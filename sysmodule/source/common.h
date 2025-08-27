@@ -7,4 +7,4 @@
 #include "util/log.h"
 // bool read_current(HiddbgHdlsState *out);
 Result padMacroInitialize();
-void padMacroFinalize();
+void padMacroExit();

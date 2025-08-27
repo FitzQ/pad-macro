@@ -6,7 +6,7 @@ static Thread listen_thread;         // 监听线程
 static alignas(0x1000) u8 listen_thread_stack[0x4000]; // 16KB 栈
 static bool recording = false;      // 录制状态
 static bool playing = false;        // 播放状态
-volatile bool exiting = true;
+static volatile bool exiting = true;
 // 监听线程
 static void listenThreadFun(void *arg) {
     (void)arg;
@@ -47,7 +47,7 @@ Result padMacroInitialize() {
     // 加载配置
     loadConfig();
     // 加载配置
-    // controllerInitialize();
+    controllerInitialize();
     // 初始化播放器
     Result rc = threadCreate(&listen_thread, listenThreadFun, NULL, listen_thread_stack, sizeof(listen_thread_stack), 49, -2);
     if (R_FAILED(rc)) {
@@ -65,15 +65,15 @@ Result padMacroInitialize() {
 }
 
 
-void padMacroFinalize() {
-    log_info("pad macro finalize");
+void padMacroExit() {
+    log_info("pad macro exit");
     exiting = false;
     freeConfig();
-    // controllerFinalize();
+    controllerExit();
     if (listen_thread.handle) {
         threadWaitForExit(&listen_thread);
         threadClose(&listen_thread);
         listen_thread.handle = 0;
     }
-    log_info("pad macro finalized");
+    log_info("pad macro exited");
 }
