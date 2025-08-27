@@ -1,6 +1,13 @@
-.PHONY: all overlay sysmodule clean
+.PHONY: all overlay sysmodule clean timed
 
-all: overlay sysmodule
+# Default target: run overlay and sysmodule builds and print elapsed time
+all:
+	@start=$$(date +%s); \
+	$(MAKE) overlay $(MAKEFLAGS); \
+	$(MAKE) sysmodule $(MAKEFLAGS); \
+	end=$$(date +%s); \
+	elapsed=$$((end-start)); \
+	printf "Total elapsed: %02d:%02d\n" $$((elapsed/60)) $$((elapsed%60));
 
 overlay:
 	$(MAKE) -C overlay $(MAKEFLAGS)

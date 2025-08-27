@@ -1,12 +1,75 @@
 // ...existing code...
 #define TESLA_INIT_IMPL
+#ifndef __DEBUG__
+#define __DEBUG__ 0
+#endif
+
 #include <tesla.hpp>
 #include <switch.h>
 #include <vector>
 #include <string>
 #include <fstream>
 #include <sstream>
+#include <cstring>
 #include <cstdio>
+#include "util/log.h"
+
+
+#define PROGRAM_NAME "pad-macro"
+#define PROGRAM_ID 0x0100000000C0FFEE
+
+bool isProgramRunning()
+{
+    u64 pid = 0;
+    if (R_FAILED(pmdmntGetProcessId(&pid, PROGRAM_ID)))
+        return false;
+
+    return pid > 0;
+}
+
+
+Mutex programSwitchMutex = 0;
+void startProgram()
+{
+    mutexLock(&programSwitchMutex);
+    if (isProgramRunning()) {
+        mutexUnlock(&programSwitchMutex);
+        log_info("program already running");
+        return;
+    }
+    const NcmProgramLocation programLocation{
+        .program_id = PROGRAM_ID,
+        .storageID = NcmStorageId_None,
+    };
+    u64 pid = 0;
+    Result rc = pmshellLaunchProgram(0, &programLocation, &pid);
+    if (R_FAILED(rc)) {
+        mutexUnlock(&programSwitchMutex);
+        log_error("pmshellLaunchProgram failed: 0x%x", rc);
+        return;
+    }
+    mutexUnlock(&programSwitchMutex);
+    log_info("launched program, pid=%llu", pid);
+}
+
+void terminateProgram()
+{
+    mutexLock(&programSwitchMutex);
+    if (!isProgramRunning()) {
+        mutexUnlock(&programSwitchMutex);
+        log_info("program not running");
+        return;
+    }
+    Result rc = pmshellTerminateProgram(PROGRAM_ID);
+    if (R_FAILED(rc)) {
+        mutexUnlock(&programSwitchMutex);
+        log_error("pmshellTerminateProgram failed: 0x%x", rc);
+        return;
+    }
+    mutexUnlock(&programSwitchMutex);
+    log_info("terminated program");
+}
+
 
 // 配置文件路径
 // path relative to the opened SdCard FsFileSystem (do NOT include leading '/').
@@ -35,6 +98,8 @@ struct ConfigData
 };
 
 ConfigData g_config;
+Service g_service;
+bool g_serviceConnected = false;
 
 // 按键名映射辅助
 std::string maskToComboString(u64 mask)
@@ -200,19 +265,19 @@ static void saveConfig()
         return;
     tsl::hlp::ScopeGuard fsGuard([&]
                                  { fsFsClose(&fsSdmc); });
-
+{
     /* Open (create/truncate) config file. */
     FsFile fileConfig;
     // Ensure parent directory exists (e.g. "config/pad-macro")
     (void)fsFsCreateDirectory(&fsSdmc, "/config/pad-macro");
 
     // Try opening file for write; if it doesn't exist create it first
-    if (R_FAILED(fsFsOpenFile(&fsSdmc, CONFIG_FILE, FsOpenMode_Write, &fileConfig)))
+    if (R_FAILED(fsFsOpenFile(&fsSdmc, CONFIG_FILE, FsOpenMode_Write | FsOpenMode_Append, &fileConfig)))
     {
         // Try creating file if it doesn't exist (size 0, flags 0)
         if (R_FAILED(fsFsCreateFile(&fsSdmc, CONFIG_FILE, 0, 0)))
             return;
-        if (R_FAILED(fsFsOpenFile(&fsSdmc, CONFIG_FILE, FsOpenMode_Write, &fileConfig)))
+        if (R_FAILED(fsFsOpenFile(&fsSdmc, CONFIG_FILE, FsOpenMode_Write | FsOpenMode_Append, &fileConfig)))
             return;
     }
     tsl::hlp::ScopeGuard fileGuard([&]
@@ -224,7 +289,7 @@ static void saveConfig()
     // recorder_btn saved as human-readable combo string
     iniString += std::string("recorder_btn=") + u64ToHexString(g_config.pad.recorder_btn) + "\n";
     // play_latest_btn saved as hex (so hexStringTo64 can accept 0x... or decimal)
-    iniString += std::string("play_latest_btn=") + u64ToHexString(g_config.pad.play_latest_btn) + "\n\n";
+    iniString += std::string("play_latest_btn=") + u64ToHexString(g_config.pad.play_latest_btn) + "\n";
     iniString += "[macros]\n";
 
     // write macros
@@ -232,23 +297,33 @@ static void saveConfig()
     {
         if (m.key_mask == 0 || m.file_path.empty())
             continue;
+        log_info("%s=%s", u64ToHexString(m.key_mask).c_str(), m.file_path.c_str());
         iniString += (u64ToHexString(m.key_mask) + "=" + m.file_path + "\n");
     }
 
     Result rc = fsFileWrite(&fileConfig, 0, iniString.c_str(), iniString.length(), FsWriteOption_Flush);
     if (R_FAILED(rc)) {
-    // 写失败：记录/处理
-    // log_error("fsFileWrite failed: 0x%x", rc);
-    } else {
-        // 确保文件大小和内容一致（防止旧尾部残留）
-        rc = fsFileSetSize(&fileConfig, (s64)iniString.length());
-        if (R_FAILED(rc)) {
-            // log_error("fsFileSetSize failed: 0x%x", rc);
-        }
+        // 写失败：记录/处理
+        log_error("fsFileWrite failed: 0x%x", rc);
+        return;
+    }
+    // 确保文件大小和内容一致（防止旧尾部残留）
+    rc = fsFileSetSize(&fileConfig, (s64)iniString.length());
+    if (R_FAILED(rc)) {
+        log_error("fsFileSetSize failed: 0x%x", rc);
+        return;
     }
 }
+    // 通知 sysmodule 配置已更新
+    Result rc = serviceDispatch(&g_service, 1);
+    if (R_FAILED(rc)) {
+        log_error("serviceDispatch failed: 0x%x", rc);
+        return;
+    }
+    log_info("Configuration saved");
+}
 
-const std::array<std::string, 32> KEY_COMBO_LIST = {
+const std::array<std::string, 26> KEY_COMBO_LIST = {
     "ZL+ZR", "ZL+ZR+DLEFT", "ZL+ZR+DUP", "ZL+ZR+DRIGHT", "ZL+ZR+DDOWN",
     "L+R", "L+R+DLEFT", "L+R+DUP", "L+R+DRIGHT", "L+R+DDOWN",
     "L+A", "L+B", "L+X", "L+Y", "L+DLEFT", "L+DUP", "L+DRIGHT", "L+DDOWN",
@@ -263,12 +338,14 @@ private:
     std::string *path;
 
 public:
-    GuiMacroFileList(tsl::elm::ListItem *item, std::string *path) : item(item), path(path) {}
+    GuiMacroFileList(tsl::elm::ListItem *item, std::string *path) : item(item), path(path) {
+        log_info("GuiMacroFileList created, item=%p:%s path=%p:%s", (void*)item, item ? item->getText().c_str() : "(null)", (void*)path, path ? path->c_str() : "(null)");
+    }
 
     virtual tsl::elm::Element *createUI() override
     {
 
-        auto *rootFrame = new tsl::elm::OverlayFrame("Tesla Example", "v1.3.2 - Secondary Gui");
+        auto *rootFrame = new tsl::elm::OverlayFrame("Pad Macro", "v1.0.0 - macro file browser");
         /* Open Sd card filesystem. */
         FsFileSystem fsSdmc;
         if (R_FAILED(fsOpenSdCardFileSystem(&fsSdmc)))
@@ -289,21 +366,33 @@ public:
                                     { fsDirClose(&dir); });
 
         auto list = new tsl::elm::List();
-        list->addItem(new tsl::elm::CategoryHeader("pad"));
+        list->addItem(new tsl::elm::CategoryHeader("pad \uE0E1 \uE0E2 \uE0E3 \uE0E4 \uE0E5\nsdasda\nasdas", true));
 
     for (s64 i = 0; i < entries_read; ++i)
         {
+            if (std::string(entries[i].name) == "latest.bin")
+                continue;
 
             // show combo name and a select label on the right (two-arg constructor)
-            std::string absPath = std::string(MACROS_DIR) + entries[i].name;
+            std::string absPath = std::string(MACROS_DIR) + "/" + entries[i].name;
             auto *listItem = new tsl::elm::ListItem(entries[i].name, (absPath == *path) ? std::string("Selected") : std::string(""));
 
             listItem->setClickListener([this, absPath](u64 keys) {
+                // A to select
                 if (keys & HidNpadButton_A) {
                     *this->path = absPath;
                     saveConfig();
-                    this->item->setText(*this->path);
+                    std::string fileName = tsl::hlp::split(*this->path, '/').back();
+                    this->item->setText(fileName);
                     tsl::goBack();
+                    return true;
+                // Y to rename
+                } else if (keys & HidNpadButton_Y) {
+                    // todo
+                    return true;
+                // X to delete
+                } else if (keys & HidNpadButton_X) {
+                    // todo 
                     return true;
                 }
                 return false;
@@ -325,16 +414,19 @@ private:
     u64 *mask;
 
 public:
-    GuiKeyComboList(tsl::elm::ListItem *item, u64 *mask) : item(item), mask(mask) {}
+    GuiKeyComboList(tsl::elm::ListItem *item, u64 *mask) : item(item), mask(mask) {
+        log_info("GuiKeyComboList created, item=%p:%s mask=%p:%llx", (void*)item, item ? item->getText().c_str() : "(null)", (void*)mask, mask ? *mask : 0);
+    }
 
     virtual tsl::elm::Element *createUI() override
     {
-        auto *rootFrame = new tsl::elm::OverlayFrame("Tesla Example", "v1.3.2 - Secondary Gui");
+        log_info("GuiKeyComboList createUI");
+        auto *rootFrame = new tsl::elm::OverlayFrame("Pad Macro", "v1.0.0 - key combo browser");
         auto list = new tsl::elm::List();
-        list->addItem(new tsl::elm::CategoryHeader("pad"));
+        list->addItem(new tsl::elm::CategoryHeader("key combos | \uE0E0 select"));
         for (size_t i = 0; i < KEY_COMBO_LIST.size(); i++)
         {
-
+            log_info("list %zu/%zu", i, KEY_COMBO_LIST.size());
             // compute candidate mask once
             u64 candidate = comboStringToMask(KEY_COMBO_LIST[i]);
             // skip combos that are already used elsewhere, but allow the currently selected combo
@@ -366,79 +458,134 @@ public:
 class GuiTest : public tsl::Gui
 {
 private:
-    tsl::elm::ToggleListItem *recorderEnableToggleListItem;
-    tsl::elm::ToggleListItem *playerEnableToggleListItem;
-    tsl::elm::ListItem *recorderBtnListItem;
-    tsl::elm::ListItem *playLatestBtnListItem;
+    tsl::elm::OverlayFrame *frame;
+    tsl::elm::List *list;
 public:
-    GuiTest(u8 arg1, u8 arg2, bool arg3) {}
+    GuiTest() {}
 
     virtual tsl::elm::Element *createUI() override
     {
-        auto frame = new tsl::elm::OverlayFrame("pad-macro", "v1.0.0");
-        auto list = new tsl::elm::List();
+        log_debug("GuiTest createUI, g_serviceConnected=%d", g_serviceConnected);
+        frame = new tsl::elm::OverlayFrame("pad-macro", "v1.0.0");
+        list = new tsl::elm::List();
+        initContent();
+        frame->setContent(list);
+        log_debug("GuiTest createUI done");
+        return frame;
+    }
+
+    virtual void update() override {
+        if (!g_serviceConnected && isProgramRunning()) {
+            log_debug("program started, try to get service");
+            Result rc = smGetService(&g_service, "padmacro");
+            log_debug("smGetService returned %d", rc);
+            g_serviceConnected = R_SUCCEEDED(rc);
+            if (g_serviceConnected) {
+                initContent();
+            }
+        } else if (g_serviceConnected && !isProgramRunning())
+        {
+            log_debug("program stopped, releasing service");
+            g_serviceConnected = false;
+            g_service = {0};
+            initContent();
+        }
+    }
+
+    virtual bool handleInput(u64 keysDown, u64 keysHeld, const HidTouchState &touchPos, HidAnalogStickState joyStickPosLeft, HidAnalogStickState joyStickPosRight) override
+    {
+
+        return false;
+    }
+
+    virtual void initContent() {
+        log_debug("Initializing content...");
+        tsl::Gui::removeFocus(nullptr);
+        list->clear();
+        auto pmTLI = new tsl::elm::ToggleListItem("Program", isProgramRunning());
+        pmTLI->setStateChangedListener([this, pmTLI](bool state) {
+            pmTLI->setState(state); // keep them in sync
+            if (state) {
+                startProgram();
+            } else {
+                terminateProgram();
+            }
+        });
+        list->addItem(pmTLI);
+        if (!g_serviceConnected) {
+            log_debug("service not available");
+            return;
+        }
 
         // pad section
         list->addItem(new tsl::elm::CategoryHeader("pad"));
+        list->addItem(new tsl::elm::CustomDrawer([](tsl::gfx::Renderer *renderer, s32 x, s32 y, s32 w, s32 h) {
+            renderer->drawString("\uE016  desc.", false, x + 5, y + 20, 15, renderer->a(tsl::style::color::ColorDescription));
+        }), 30);
         // recorder_enable toggle
-        recorderEnableToggleListItem = new tsl::elm::ToggleListItem("recorder_enable", g_config.pad.recorder_enable);
+        tsl::elm::ToggleListItem *recorderEnableToggleListItem = new tsl::elm::ToggleListItem("recorder_enable", g_config.pad.recorder_enable);
         recorderEnableToggleListItem->setStateChangedListener([](bool state){
             g_config.pad.recorder_enable = state;
             saveConfig();
         });
         list->addItem(recorderEnableToggleListItem);
         // player_enable toggle
-        playerEnableToggleListItem = new tsl::elm::ToggleListItem("player_enable", g_config.pad.player_enable);
+        tsl::elm::ToggleListItem *playerEnableToggleListItem = new tsl::elm::ToggleListItem("player_enable", g_config.pad.player_enable);
         playerEnableToggleListItem->setStateChangedListener([](bool state){
             g_config.pad.player_enable = state;
             saveConfig();
         });
         list->addItem(playerEnableToggleListItem);
         // recorder_btn 按键组合
-        recorderBtnListItem = new tsl::elm::ListItem("recorder_btn", comboStringToGlyph(maskToComboString(g_config.pad.recorder_btn)));
-        recorderBtnListItem->setClickListener([this](u64 keys) {
+        tsl::elm::ListItem *recorderBtnListItem = new tsl::elm::ListItem("recorder_btn", comboStringToGlyph(maskToComboString(g_config.pad.recorder_btn)));
+        recorderBtnListItem->setClickListener([recorderBtnListItem](u64 keys) {
             if (keys & HidNpadButton_A) {
                 // open recording gui (pass address so Gui can modify the value)
-                tsl::changeTo<GuiKeyComboList>((this->recorderBtnListItem), &g_config.pad.recorder_btn);
+                tsl::changeTo<GuiKeyComboList>((recorderBtnListItem), &g_config.pad.recorder_btn);
                 return true;
             }
             return false; });
         list->addItem(recorderBtnListItem);
         // play_latest_btn 按键组合
-        playLatestBtnListItem = new tsl::elm::ListItem("play_latest_btn", comboStringToGlyph(maskToComboString(g_config.pad.play_latest_btn)));
-        playLatestBtnListItem->setClickListener([this](u64 keys) {
+        tsl::elm::ListItem *playLatestBtnListItem = new tsl::elm::ListItem("play_latest_btn", comboStringToGlyph(maskToComboString(g_config.pad.play_latest_btn)));
+        playLatestBtnListItem->setClickListener([playLatestBtnListItem](u64 keys) {
             if (keys & HidNpadButton_A) {
                 // open recording gui (pass address so Gui can modify the value)
-                tsl::changeTo<GuiKeyComboList>((this->playLatestBtnListItem), &g_config.pad.play_latest_btn);
+                tsl::changeTo<GuiKeyComboList>(playLatestBtnListItem, &g_config.pad.play_latest_btn);
                 return true;
             }
             return false; });
         list->addItem(playLatestBtnListItem);
+        log_debug("list pad section initialized");
 
         // macros section
-        list->addItem(new tsl::elm::CategoryHeader("macros"));
+        list->addItem(new tsl::elm::CategoryHeader("macros | \uE0E0 pick combo | \uE0E3 pick macro | \uE0E2 del", true));
+        list->addItem(new tsl::elm::CustomDrawer([](tsl::gfx::Renderer *renderer, s32 x, s32 y, s32 w, s32 h) {
+            renderer->drawString("\uE016  desc.", false, x + 5, y + 20, 15, renderer->a(tsl::style::color::ColorDescription));
+        }), 30);
         // 显示所有宏映射
         for (size_t i = 0; i < g_config.macros.size(); ++i)
         {
-            tsl::elm::ListItem *macroListItem = new tsl::elm::ListItem(g_config.macros[i].file_path, maskToComboString(g_config.macros[i].key_mask));
-            macroListItem->setClickListener([list, macroListItem, i](u64 keys)
+            std::string fileName = tsl::hlp::split(g_config.macros[i].file_path, '/').back();
+            tsl::elm::ListItem *macroListItem = new tsl::elm::ListItem(fileName, comboStringToGlyph(maskToComboString(g_config.macros[i].key_mask)));
+            macroListItem->setClickListener([this, macroListItem, i](u64 keys)
                                              {
                 // edit macro file
                 if (keys & HidNpadButton_A) {
                     // pass pointer to the actual vector element's file_path (non-const)
-                    tsl::changeTo<GuiMacroFileList>(macroListItem, &g_config.macros[i].file_path);
+                    tsl::changeTo<GuiKeyComboList>(macroListItem, &g_config.macros[i].key_mask);
                     return true;
                 }
                 // edit btn mask
                 if (keys & HidNpadButton_Y) {
-                    tsl::changeTo<GuiKeyComboList>(macroListItem, &g_config.macros[i].key_mask);
+                    tsl::changeTo<GuiMacroFileList>(macroListItem, &g_config.macros[i].file_path);
                     return true;
                 }
                 // Delete
                 if (keys & HidNpadButton_X) {
                     g_config.macros.erase(g_config.macros.begin() + i);
                     saveConfig();
-                    list->removeItem(macroListItem);
+                    this->list->removeItem(macroListItem);
                     return true;
                 }
                 return false; });
@@ -446,12 +593,12 @@ public:
         }
         // 新增宏映射
         tsl::elm::ListItem *addMacroItem = new tsl::elm::ListItem("Add Mapping", "+");
-        addMacroItem->setClickListener([list, addMacroItem](u64 keys) mutable {
+        addMacroItem->setClickListener([this, addMacroItem](u64 keys) mutable {
             if (keys & HidNpadButton_A) {
-                g_config.macros.push_back(MacroItem{hexStringTo64("0x00000000"), "/switch/pad-macro/macros/latest.bin"});
+                g_config.macros.push_back(MacroItem{0x0, ""});
                 size_t idx = g_config.macros.size() - 1;
-                tsl::elm::ListItem *newMacroListItem = new tsl::elm::ListItem("Y to pick macro", "A to pick combo");
-                newMacroListItem->setClickListener([list, newMacroListItem, idx](u64 keys) {
+                tsl::elm::ListItem *newMacroListItem = new tsl::elm::ListItem(comboStringToGlyph("Y") + " pick macro", comboStringToGlyph("A") + " pick combo");
+                newMacroListItem->setClickListener([this, newMacroListItem, idx](u64 keys) {
                         // edit macro file
                         if (keys & HidNpadButton_A) {
                             tsl::changeTo<GuiKeyComboList>(newMacroListItem, &g_config.macros[idx].key_mask);
@@ -466,26 +613,18 @@ public:
                         if (keys & HidNpadButton_X) {
                             g_config.macros.erase(g_config.macros.begin() + idx);
                             saveConfig();
-                            list->removeItem(newMacroListItem);
+                            this->list->removeItem(newMacroListItem);
                             return true;
                         }
                         return false; });
-                list->addItem(newMacroListItem, 0, list->getIndexInList(addMacroItem));
+                this->list->addItem(newMacroListItem, 0, this->list->getIndexInList(addMacroItem));
+                tsl::Overlay::get()->getCurrentGui()->requestFocus(newMacroListItem, tsl::FocusDirection::None);
                 return true;
             }
             return false; });
         list->addItem(addMacroItem);
-
-        frame->setContent(list);
-        return frame;
-    }
-
-    virtual void update() override {}
-
-    virtual bool handleInput(u64 keysDown, u64 keysHeld, const HidTouchState &touchPos, HidAnalogStickState joyStickPosLeft, HidAnalogStickState joyStickPosRight) override
-    {
-
-        return false;
+        log_debug("list macros section initialized");
+        log_debug("Content initialized");
     }
 };
 
@@ -493,11 +632,57 @@ class OverlayTest : public tsl::Overlay
 {
 public:
     // libtesla already initialized fs, hid, pl, pmdmnt, hid:sys and set:sys
-    virtual void exitServices() override {} // Called at the end to clean up all services previously initialized
+
+    // Called at the end to clean up all services previously initialized
+    virtual void exitServices() override {
+        log_info("OverlayTest exitServices");
+        timeExit();
+        socketExit();
+        if(g_serviceConnected){
+            serviceClose(&g_service);
+        }
+        smExit();
+        pmshellExit();
+    }
 
     virtual void initServices() override
     {
+        Result rc = 0;
+
+#if __DEBUG__
+        static const SocketInitConfig socketInitConfig = {
+            .tcp_tx_buf_size = 0x800,
+            .tcp_rx_buf_size = 0x800,
+            .tcp_tx_buf_max_size = 0x25000,
+            .tcp_rx_buf_max_size = 0x25000,
+
+            // Enable UDP for net logging
+            .udp_tx_buf_size = 0x2400,
+            .udp_rx_buf_size = 0x2400,
+
+            .sb_efficiency = 1,
+        };
+        rc = socketInitialize(&socketInitConfig);
+#endif
+
+        if (R_FAILED(rc)) {
+            log_error("socketInitialize failed: %08X", rc);
+            return;
+        }
+        log_info("socketInitializeDefault success");
+        rc = timeInitialize();
+        if (R_FAILED(rc)) {
+            log_error("timeInitialize failed: %08X", rc);
+            return;
+        }
+        log_info("timeInitialize success");
+        pmshellInitialize();
+        smInitialize();
+        if(isProgramRunning()) {
+            g_serviceConnected = R_SUCCEEDED(smGetService(&g_service, "padmacro"));
+        }
         loadConfig();
+        log_info("loadConfig success");
     }
 
     virtual void onShow() override {} // Called before overlay wants to change from invisible to visible state
@@ -505,7 +690,7 @@ public:
 
     virtual std::unique_ptr<tsl::Gui> loadInitialGui() override
     {
-        return initially<GuiTest>(1, 2, true); // Initial Gui to load. It's possible to pass arguments to it's constructor like this
+        return initially<GuiTest>(); // Initial Gui to load. It's possible to pass arguments to it's constructor like this
     }
 };
 

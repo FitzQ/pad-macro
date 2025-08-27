@@ -76,7 +76,12 @@ static void recordThreadFun(void *arg) {
     setLedPattern(LED_PATTERN_OFF);
     char fullpath[128];
     snprintf(fullpath, sizeof(fullpath), CURRENT_FILE_PATH, cur_time_filename());
-    copy_file(LATEST_FILE_PATH, fullpath);
+    int cpyrc = copy_file(LATEST_FILE_PATH, fullpath);
+    if (cpyrc != 0) {
+        log_error("[recorder] copy_file failed %d: %s -> %s", cpyrc, LATEST_FILE_PATH, fullpath);
+    } else {
+        log_info("[recorder] copied latest recording to %s", fullpath);
+    }
     log_info("recording finished");
     threadExit();
 }
@@ -129,24 +134,32 @@ static char *cur_time_filename() {
     int day = tm_ptr->tm_mday;
     int month = tm_ptr->tm_mon;
     int year = tm_ptr->tm_year + 1900;
-    // Format time as "YYYY-MM-DD_HH:MM:SS.bin"
+    // Format time as "YYYY-MM-DD_HH-MM-SS.bin"
     static char timebuf[64];
-    snprintf(timebuf, sizeof(timebuf), "%04i-%02i-%02i_%02i:%02i:%02i.bin",
+    snprintf(timebuf, sizeof(timebuf), "%04i-%02i-%02i_%02i-%02i-%02i.bin",
              year, month + 1, day, hours, minutes, seconds);
     return timebuf;
 }
 
 static int copy_file(const char *src, const char *dst) {
     FILE *fin = fopen(src, "rb");
-    if (!fin) return -1;
+    if (!fin) {
+        log_error("[recorder] copy_file: fopen source failed: %s", src);
+        return -1;
+    }
     FILE *fout = fopen(dst, "wb");
-    if (!fout) { fclose(fin); return -2; }
+    if (!fout) { fclose(fin); log_error("[recorder] copy_file: fopen dest failed: %s", dst); return -2; }
     char buf[4096];
     size_t n;
     while ((n = fread(buf, 1, sizeof(buf), fin)) > 0) {
-        if (fwrite(buf, 1, n, fout) != n) { fclose(fin); fclose(fout); return -3; }
+        if (fwrite(buf, 1, n, fout) != n) {
+            fclose(fin); fclose(fout);
+            log_error("[recorder] copy_file: fwrite failed during copy");
+            return -3;
+        }
     }
     fclose(fin);
     fclose(fout);
+    log_info("[recorder] copy_file success: %s -> %s", src, dst);
     return 0;
 }

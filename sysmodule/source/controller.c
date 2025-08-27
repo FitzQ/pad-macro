@@ -11,42 +11,41 @@
 
 static int initialized = 0;
 static HiddbgHdlsSessionId hdlsSessionId = {0};
-static alignas(0x1000) u8 workmem[0x1000]; // 4KB 工作内存
+// static alignas(0x1000) u8 workmem[0x1000]; // 4KB 工作内存
 static HiddbgHdlsStateList stateList = {0};
 
-Result controllerInitialize()
+
+HiddbgHdlsSessionId* getHdlsSessionId()
 {
-    log_info("memory allocated for input states");
-
-    Result workRes = hiddbgAttachHdlsWorkBuffer(&hdlsSessionId, workmem, sizeof(workmem));
-    if (R_FAILED(workRes))
-    {
-        log_error("Failed to attach HdlsWorkBuffer: %d\n", workRes);
-        return -1;
-    }
-
-    HiddbgHdlsNpadAssignment state = {0};
-    memset(&state, 0, sizeof(state));
-    Result res = hiddbgDumpHdlsNpadAssignmentState(hdlsSessionId, &state);
-    if (R_FAILED(res))
-    {
-        log_error("Failed to dump HDLS Npad Assignment State: %d\n", res);
-        return -2;
-    }
-    initialized = 1;
-    log_info("Controller initialized successfully");
-    return 0;
+    return &hdlsSessionId;
 }
 
-void controllerFinalize()
-{
-    if (hdlsSessionId.id)
-    {
-        hiddbgReleaseHdlsWorkBuffer(hdlsSessionId);
-        hdlsSessionId = (HiddbgHdlsSessionId){0};
-    }
-    initialized = 0;
-}
+// Result controllerInitialize()
+// {
+//     log_info("memory allocated for input states");
+
+//     HiddbgHdlsNpadAssignment state = {0};
+//     memset(&state, 0, sizeof(state));
+//     Result res = hiddbgDumpHdlsNpadAssignmentState(hdlsSessionId, &state);
+//     if (R_FAILED(res))
+//     {
+//         log_error("Failed to dump HDLS Npad Assignment State: %d\n", res);
+//         return -2;
+//     }
+//     initialized = 1;
+//     log_info("Controller initialized successfully");
+//     return 0;
+// }
+
+// void controllerExit()
+// {
+//     if (hdlsSessionId.id)
+//     {
+//         hiddbgReleaseHdlsWorkBuffer(hdlsSessionId);
+//         hdlsSessionId = (HiddbgHdlsSessionId){0};
+//     }
+//     initialized = 0;
+// }
 
 Result readState(HiddbgHdlsState *l, HiddbgHdlsState *r) {
     Result res = hiddbgDumpHdlsStates(hdlsSessionId, &stateList);

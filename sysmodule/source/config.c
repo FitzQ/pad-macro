@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "util/log.h"
 
 #define CONF_FILE_PATH "sdmc:/config/pad-macro/config.ini"
 
@@ -65,14 +66,19 @@ static bool macros_push(u64 mask, const char *path) {
 }
 
 bool loadConfig(void) {
+    log_info("Loading config from %s", CONF_FILE_PATH);
     reset_state();
+    log_info("Config reset");
 
     FILE *f = fopen(CONF_FILE_PATH, "rb");
-    if (!f) return false;
+    if (!f) { 
+        log_error("Failed to open config file");
+        return false; 
+    }
 
     fseek(f, 0, SEEK_END); long sz = ftell(f); fseek(f, 0, SEEK_SET);
-    if (sz < 0 || sz > (1<<20)) { fclose(f); return false; }
-    char *buf = (char*)malloc((size_t)sz + 1); if (!buf) { fclose(f); return false; }
+    if (sz < 0 || sz > (1<<20)) { fclose(f); log_info("Invalid config file size"); return false; }
+    char *buf = (char*)malloc((size_t)sz + 1); if (!buf) { fclose(f); log_info("Failed to allocate memory"); return false; }
     size_t rd = fread(buf, 1, (size_t)sz, f); fclose(f); buf[rd] = 0;
 
     bool in_pad = false, in_macros = false;
@@ -112,6 +118,8 @@ bool loadConfig(void) {
     }
 
     free(buf);
+    log_info("Config loaded: recorder_enable=%d, player_enable=%d, recorder_btn=0x%llx, play_latest_btn=0x%llx, macros=%zu",
+             recorder_enable, player_enable, (unsigned long long)recorder_btn, (unsigned long long)play_latest_btn, s_macros_count);
     return true;
 }
 void freeConfig(void) { reset_state(); }

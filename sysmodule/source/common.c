@@ -47,7 +47,7 @@ Result padMacroInitialize() {
     // 加载配置
     loadConfig();
     // 加载配置
-    controllerInitialize();
+    // controllerInitialize();
     // 初始化播放器
     Result rc = threadCreate(&listen_thread, listenThreadFun, NULL, listen_thread_stack, sizeof(listen_thread_stack), 49, -2);
     if (R_FAILED(rc)) {
@@ -69,7 +69,7 @@ void padMacroFinalize() {
     log_info("pad macro finalize");
     exiting = false;
     freeConfig();
-    controllerFinalize();
+    // controllerFinalize();
     if (listen_thread.handle) {
         threadWaitForExit(&listen_thread);
         threadClose(&listen_thread);

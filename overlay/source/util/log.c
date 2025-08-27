@@ -36,6 +36,10 @@ static bool  netlog_enabled    = false;
 static int   netlog_sock       = -1;
 static struct sockaddr_in netlog_addr;
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 static void netlog_try_init(void) {
     if (netlog_enabled) return; // already ready
 
@@ -108,7 +112,7 @@ static void log_write(const char *level, const char *file, int line, const char 
     int hdr = snprintf(linebuf, sizeof(linebuf), "%s [%s:%d] [%s] ", cur_time(), short_file, line, level);
     int msg = vsnprintf(linebuf + (hdr>0?hdr:0), (hdr>=0? (int)sizeof(linebuf)-hdr : 0), fmt, args);
     size_t total = (hdr>0?hdr:0) + (msg>0?msg:0);
-    if (total < sizeof(linebuf)-2) { linebuf[total++]='\n'; linebuf[total]=0; }
+    if (total < sizeof(linebuf)-2) { linebuf[total++]= '\n'; linebuf[total]=0; }
 
     if (log_file) {
         fwrite(linebuf, 1, total, log_file);
@@ -147,6 +151,9 @@ void log_debug_impl(const char *file, int line, const char *fmt, ...) {
     log_write("DEBUG", file, line, fmt, args);
     va_end(args);
 }
+#ifdef __cplusplus
+}
+#endif
 
 #else /* __DEBUG__ == 0 */
 
