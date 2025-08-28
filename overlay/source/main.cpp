@@ -332,11 +332,14 @@ static void saveConfig()
     log_info("Configuration saved");
 }
 
-const std::array<std::string, 26> KEY_COMBO_LIST = {
+const std::array<std::string, 50> KEY_COMBO_LIST = {
     "ZL+ZR", "ZL+ZR+DLEFT", "ZL+ZR+DUP", "ZL+ZR+DRIGHT", "ZL+ZR+DDOWN",
     "L+R", "L+R+DLEFT", "L+R+DUP", "L+R+DRIGHT", "L+R+DDOWN",
     "L+A", "L+B", "L+X", "L+Y", "L+DLEFT", "L+DUP", "L+DRIGHT", "L+DDOWN",
-    "ZL+A", "ZL+B", "ZL+X", "ZL+Y", "ZL+DLEFT", "ZL+DUP", "ZL+DRIGHT", "ZL+DDOWN"};
+    "ZL+A", "ZL+B", "ZL+X", "ZL+Y", "ZL+DLEFT", "ZL+DUP", "ZL+DRIGHT", "ZL+DDOWN",
+    "DLEFT+A", "DLEFT+B", "DLEFT+X", "DLEFT+Y", "DUP+A", "DUP+B", "DUP+X", "DUP+Y",
+    "DRIGHT+A", "DRIGHT+B", "DRIGHT+X", "DRIGHT+Y", "DDOWN+A", "DDOWN+B", "DDOWN+X", "DDOWN+Y"
+};
 
 
 class GuiMacroFileList : public tsl::Gui
@@ -375,7 +378,7 @@ public:
                                     { fsDirClose(&dir); });
 
         auto list = new tsl::elm::List();
-        list->addItem(new tsl::elm::CategoryHeader("pad \uE0E1 \uE0E2 \uE0E3 \uE0E4 \uE0E5\nsdasda\nasdas", true));
+        list->addItem(new tsl::elm::CategoryHeader("macros \uE0E0 pick | \uE0E3 del | \uE0E2 rename | \uE0E4 local | \uE0E5 store", true));
 
     for (s64 i = 0; i < entries_read; ++i)
         {
@@ -384,9 +387,9 @@ public:
 
             // show combo name and a select label on the right (two-arg constructor)
             std::string absPath = std::string(MACROS_DIR) + "/" + entries[i].name;
-            auto *listItem = new tsl::elm::ListItem(entries[i].name, (absPath == *path) ? std::string("Selected") : std::string(""));
+            auto *listItem = new tsl::elm::ListItem(entries[i].name, (absPath == *path) ? std::string("\u25CF") : std::string(""));
 
-            listItem->setClickListener([this, absPath](u64 keys) {
+            listItem->setClickListener([this, fsSdmc, absPath](u64 keys) {
                 // A to select
                 if (keys & HidNpadButton_A) {
                     *this->path = absPath;
@@ -401,7 +404,7 @@ public:
                     return true;
                 // X to delete
                 } else if (keys & HidNpadButton_X) {
-                    // todo 
+                    fsFsDeleteFile(&fsSdmc, absPath.c_str());
                     return true;
                 }
                 return false;
