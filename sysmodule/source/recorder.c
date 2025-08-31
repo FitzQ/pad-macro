@@ -2,6 +2,8 @@
 #include "controller.h"
 #include <time.h>
 #include <switch.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <switch/services/hid.h>
 #include <switch/runtime/devices/console.h>
 #include <stdlib.h>
@@ -10,6 +12,7 @@
 #include "util/log.h"
 #include "util/notifled.h"
 #include "common.h"
+#include <errno.h>
 
 static bool g_recording = false;     // 正在录制
 static Mutex g_recorderMutex;        // 互斥
@@ -33,13 +36,54 @@ void recorder_switch() {
     else start_recording();
 }
 
+// 创建 filepath 的父目录（递归），返回 0 成功，-1 失败并设置 errno
+static int ensure_parent_dirs(const char *filepath) {
+    if (!filepath) { errno = EINVAL; return -1; }
+    char *buf = strdup(filepath);
+    if (!buf) { errno = ENOMEM; return -1; }
+
+    // 去掉最后的文件名部分：找到最后一个 '/'
+    char *p = strrchr(buf, '/');
+    if (!p) { free(buf); return 0; } // 没有目录部分，当前目录即可
+
+    *p = '\0'; // buf 现在是父目录路径
+    // 创建每一层目录（从第一个 '/' 之后开始，保留根 '/'）
+    for (char *s = buf + 1; *s; ++s) {
+        if (*s == '/') {
+            *s = '\0';
+            if (mkdir(buf, 0755) != 0 && errno != EEXIST) {
+                free(buf);
+                return -1;
+            }
+            *s = '/';
+        }
+    }
+    // 最后一层
+    if (mkdir(buf, 0755) != 0 && errno != EEXIST) {
+        free(buf);
+        return -1;
+    }
+
+    free(buf);
+    return 0;
+}
+
 static void recordThreadFun(void *arg) {
     (void)arg;
     g_recordFile = fopen(LATEST_FILE_PATH, "wb");
     if (!g_recordFile) {
         log_error("[recorder] fopen failed: %s", LATEST_FILE_PATH);
-        threadExit();
-        return;
+        if (ensure_parent_dirs(LATEST_FILE_PATH) != 0) {
+            log_error("[recorder] ensure_parent_dirs failed: %s (%d)", strerror(errno), errno);
+            threadExit();
+            return;
+        }
+        g_recordFile = fopen(LATEST_FILE_PATH, "wb");
+        if (!g_recordFile) {
+            log_error("[recorder] fopen failed: %s", LATEST_FILE_PATH);
+            threadExit();
+            return;
+        }
     }
     setLedPattern(LED_PATTERN_SOLID);
     HiddbgHdlsState l = {0}, r = {0};
