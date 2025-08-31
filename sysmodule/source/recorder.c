@@ -28,8 +28,7 @@ static char *cur_time_filename(void);
 static int copy_file(const char *src, const char *dst);
 
 // 切换录制状态
-void recorder_switch(bool *recording) {
-    recording = &g_recording;
+void recorder_switch() {
     if (g_recording) stop_recording();
     else start_recording();
 }
@@ -162,4 +161,8 @@ static int copy_file(const char *src, const char *dst) {
     fclose(fout);
     log_info("[recorder] copy_file success: %s -> %s", src, dst);
     return 0;
+}
+
+bool recorder_is_recording() {
+    return g_recording;
 }

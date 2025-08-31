@@ -3,4 +3,5 @@
 #include <switch/types.h>
 #include <switch/services/hiddbg.h>
 
-void recorder_switch(bool *recording);
+bool recorder_is_recording();
+void recorder_switch();

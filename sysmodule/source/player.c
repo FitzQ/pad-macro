@@ -12,6 +12,7 @@
 static Thread g_playThread;         // 线程
 static alignas(0x1000) u8 playThreadStack[0x4000]; // 16KB 栈
 static bool g_playing = false;     // 正在播放
+static Mutex g_playerMutex;        // 互斥
 
 // Each frame: buttons(u64 LE), l.x(s32 LE), l.y(s32 LE), r.x(s32 LE), r.y(s32 LE)
 typedef struct {
@@ -53,7 +54,7 @@ bool player_play_file_with(const char *path, void (*apply)(const Frame24*, const
 	log_info("[player] start replay: %s", path);
 	u64 frames = 0;
 	bool ok = true;
-	while (1) {
+	while (g_playing) {
 		Frame24 l = {0}, r = {0};
 		if (!read_frame24(f, &l)) break;
 		if (!read_frame24(f, &r)) break;
@@ -78,24 +79,35 @@ static void player_apply_hdls(const Frame24 *l, const Frame24 *r) {
 static void playThreadFun(void *arg) {
     const char *path = (const char*)arg;
     setLedPattern(LED_PATTERN_BREATHING);
-    g_playing = true;
+    mutexLock(&g_playerMutex); g_playing = true; mutexUnlock(&g_playerMutex);
     player_play_file_with(path, player_apply_hdls);
-	g_playing = false;
+	mutexLock(&g_playerMutex); g_playing = false; mutexUnlock(&g_playerMutex);
     setLedPattern(LED_PATTERN_OFF);
 }
 
 static void stop_playing() {
+	mutexLock(&g_playerMutex);
+	g_playing = false;
     if (g_playThread.handle) {
         threadWaitForExit(&g_playThread);
         threadClose(&g_playThread);
         g_playThread.handle = 0;
     }
-	g_playing = false;
+	mutexUnlock(&g_playerMutex);
     log_info("[player] stop");
 }
-void start_play(char *path, bool *playing) {
-	playing = &g_playing;
-    stop_playing();
+void start_play(char *path) {
+	mutexLock(&g_playerMutex);
+    if (g_playing) {
+		mutexUnlock(&g_playerMutex);
+		log_warning("[player] already playing; stop first");
+		return;
+	}
+	if (g_playThread.handle) {
+        threadClose(&g_playThread);
+        g_playThread.handle = 0;
+	}
+	mutexUnlock(&g_playerMutex);
     Result r = threadCreate(&g_playThread, playThreadFun, path, playThreadStack, sizeof(playThreadStack), 49, -2);
     if (R_FAILED(r)) {
         log_error("[player] poll thread create failed %x", r);
@@ -107,4 +119,8 @@ void start_play(char *path, bool *playing) {
         return;
     }
     log_info("[player] start");
+}
+
+bool player_is_playing() {
+	return g_playing;
 }

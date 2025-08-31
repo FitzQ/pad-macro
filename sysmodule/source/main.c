@@ -108,7 +108,6 @@ extern "C"
     // Service deinitialization.
     void __appExit(void)
     {
-        log_info("__appExit 实际上在关闭这个后台服务时没有被执行");
         notifExit();
         hidsysExit();
         hiddbgExit();
