@@ -332,7 +332,23 @@ static void saveConfig()
     log_info("Configuration saved");
 }
 
-const std::array<std::string, 50> KEY_COMBO_LIST = {
+static Result delFile(const char *path) {
+    /* Open Sd card filesystem. */
+    FsFileSystem fsSdmc;
+    if (R_FAILED(fsOpenSdCardFileSystem(&fsSdmc)))
+        return -1;
+    tsl::hlp::ScopeGuard fsGuard([&]
+                                 { fsFsClose(&fsSdmc); });
+    Result rc = fsFsDeleteFile(&fsSdmc, path);
+    if (R_FAILED(rc)) {
+        log_error("fsFsDeleteFile failed: 0x%x", rc);
+        return rc;
+    }
+    log_info("Configuration file deleted");
+    return 0;
+}
+
+const std::array<std::string, 42> KEY_COMBO_LIST = {
     "ZL+ZR", "ZL+ZR+DLEFT", "ZL+ZR+DUP", "ZL+ZR+DRIGHT", "ZL+ZR+DDOWN",
     "L+R", "L+R+DLEFT", "L+R+DUP", "L+R+DRIGHT", "L+R+DDOWN",
     "L+A", "L+B", "L+X", "L+Y", "L+DLEFT", "L+DUP", "L+DRIGHT", "L+DDOWN",
@@ -369,16 +385,15 @@ public:
         FsDir dir;
         if (R_FAILED(fsFsOpenDirectory(&fsSdmc, MACROS_DIR, FsDirOpenMode_ReadDirs | FsDirOpenMode_ReadFiles, &dir)))
             return rootFrame;
-        const int BUF_SIZE = 16;
+        const int BUF_SIZE = 50;
         FsDirectoryEntry entries[BUF_SIZE];
         s64 entries_read = 0;
         if (R_FAILED(fsDirRead(&dir, &entries_read, BUF_SIZE, entries)))
             return rootFrame;
         tsl::hlp::ScopeGuard fileGuard([&]
                                     { fsDirClose(&dir); });
-
         auto list = new tsl::elm::List();
-        list->addItem(new tsl::elm::CategoryHeader("macros \uE0E0 pick | \uE0E3 del | \uE0E2 rename | \uE0E4 local | \uE0E5 store", true));
+        list->addItem(new tsl::elm::CategoryHeader("macros \uE0E0 pick | \uE0E2 del | \uE0E3 view", true));
 
     for (s64 i = 0; i < entries_read; ++i)
         {
@@ -389,7 +404,7 @@ public:
             std::string absPath = std::string(MACROS_DIR) + "/" + entries[i].name;
             auto *listItem = new tsl::elm::ListItem(entries[i].name, (absPath == *path) ? std::string("\u25CF") : std::string(""));
 
-            listItem->setClickListener([this, fsSdmc, absPath](u64 keys) {
+            listItem->setClickListener([this, list, listItem, absPath](u64 keys) {
                 // A to select
                 if (keys & HidNpadButton_A) {
                     *this->path = absPath;
@@ -404,7 +419,11 @@ public:
                     return true;
                 // X to delete
                 } else if (keys & HidNpadButton_X) {
-                    fsFsDeleteFile(&fsSdmc, absPath.c_str());
+                    log_info("deleting %s", absPath.c_str());
+                    Result rc = delFile(absPath.c_str());
+                    log_info("fsFsDeleteFile returned 0x%x", rc);
+                    listItem->setText("deleted");
+                    listItem->setClickListener([](u64){return false;});
                     return true;
                 }
                 return false;
@@ -625,7 +644,8 @@ public:
                         if (keys & HidNpadButton_X) {
                             g_config.macros.erase(g_config.macros.begin() + idx);
                             saveConfig();
-                            this->list->removeItem(newMacroListItem);
+                            newMacroListItem->setText("deleted");
+                            newMacroListItem->setClickListener([](u64){ return false; });
                             return true;
                         }
                         return false; });
