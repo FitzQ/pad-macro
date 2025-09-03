@@ -8,18 +8,23 @@
 #define CONF_FILE_PATH "sdmc:/config/pad-macro/config.ini"
 
 // Internal storage
-static u64 play_latest_btn = 0;
-static u64 recorder_btn = 0;
-static bool recorder_enable = false;
-static bool player_enable = false;
+static PadConfig g_config = {
+    .recordButtonMask = 0,
+    .playLatestButtonMask = 0,
+    .recorderEnable = false,
+    .playerEnable = false,
+    .recorderFPS = FPS_60,
+    .playerFPS = FPS_60
+};
 
 typedef struct { u64 mask; char *path; } MacroEntry;
 static MacroEntry *s_macros = NULL;
 static size_t s_macros_count = 0, s_macros_cap = 0;
 
 static void reset_state(void) {
-    play_latest_btn = recorder_btn = 0;
-    recorder_enable = player_enable = false;
+    g_config.recordButtonMask = g_config.playLatestButtonMask = 0;
+    g_config.recorderEnable = g_config.playerEnable = false;
+    g_config.recorderFPS = g_config.playerFPS = FPS_60;
     for (size_t i = 0; i < s_macros_count; ++i) free(s_macros[i].path);
     free(s_macros); s_macros = NULL; s_macros_count = s_macros_cap = 0;
 }
@@ -46,6 +51,15 @@ static bool parse_u64_auto(const char *s, u64 *out) {
     while (*end==' '||*end=='\t') ++end;
     if (*end!=0) return false;
     *out = (u64)v; return true;
+}
+
+static bool parse_FPSOpt(const char *s, FPSOpt *out) {
+    if (!s||!out) return false;
+    if (!strcasecmp(s, "FPS_30")) { *out = FPS_30; return true; }
+    if (!strcasecmp(s, "FPS_60")) { *out = FPS_60; return true; }
+    if (!strcasecmp(s, "FPS_120")) { *out = FPS_120; return true; }
+    if (!strcasecmp(s, "FPS_240")) { *out = FPS_240; return true; }
+    return false;
 }
 
 static bool macros_push(u64 mask, const char *path) {
@@ -100,10 +114,12 @@ bool loadConfig(void) {
             char *eq = strchr(line, '='); if (!eq) continue;
             *eq = 0; char *k = line; char *v = eq+1; trim(k); trim(v);
             if (!*k || !*v) continue;
-            if (!strcasecmp(k, "play_latest_btn")) { u64 x; if (parse_u64_auto(v, &x)) play_latest_btn = x; }
-            else if (!strcasecmp(k, "recorder_btn")) { u64 x; if (parse_u64_auto(v, &x)) recorder_btn = x; }
-            else if (!strcasecmp(k, "recorder_enable")) { bool b; if (parse_bool(v, &b)) recorder_enable = b; }
-            else if (!strcasecmp(k, "player_enable")) { bool b; if (parse_bool(v, &b)) player_enable = b; }
+            if (!strcasecmp(k, "play_latest_btn")) { u64 x; if (parse_u64_auto(v, &x)) g_config.playLatestButtonMask = x; }
+            else if (!strcasecmp(k, "recorder_btn")) { u64 x; if (parse_u64_auto(v, &x)) g_config.recordButtonMask = x; }
+            else if (!strcasecmp(k, "recorder_enable")) { bool b; if (parse_bool(v, &b)) g_config.recorderEnable = b; }
+            else if (!strcasecmp(k, "player_enable")) { bool b; if (parse_bool(v, &b)) g_config.playerEnable = b; }
+            else if (!strcasecmp(k, "recorder_fps")) { FPSOpt x; if (parse_FPSOpt(v, &x)) g_config.recorderFPS = x; }
+            else if (!strcasecmp(k, "player_fps")) { FPSOpt x; if (parse_FPSOpt(v, &x)) g_config.playerFPS = x; }
             continue;
         }
 
@@ -119,15 +135,15 @@ bool loadConfig(void) {
 
     free(buf);
     log_info("Config loaded: recorder_enable=%d, player_enable=%d, recorder_btn=0x%llx, play_latest_btn=0x%llx, macros=%zu",
-             recorder_enable, player_enable, (unsigned long long)recorder_btn, (unsigned long long)play_latest_btn, s_macros_count);
+             g_config.recorderEnable, g_config.playerEnable, (unsigned long long)g_config.recordButtonMask, (unsigned long long)g_config.playLatestButtonMask, s_macros_count);
     return true;
 }
 void freeConfig(void) { reset_state(); }
 
-u64 getRecordButtonMask(void) { return recorder_btn; }
-u64 getPlayLatestButtonMask(void) { return play_latest_btn; }
-bool recorderEnable(void) { return recorder_enable; }
-bool playerEnable(void) { return player_enable; }
+u64 getRecordButtonMask(void) { return g_config.recordButtonMask; }
+u64 getPlayLatestButtonMask(void) { return g_config.playLatestButtonMask; }
+bool recorderEnable(void) { return g_config.recorderEnable; }
+bool playerEnable(void) { return g_config.playerEnable; }
 
 bool maskMatch(u64 pressed, char **out_path) {
     if (!out_path) return false;
@@ -138,4 +154,8 @@ bool maskMatch(u64 pressed, char **out_path) {
         }
     }
     return false;
+}
+
+PadConfig getPadConfig(void) {
+    return g_config;
 }

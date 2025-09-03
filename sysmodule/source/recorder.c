@@ -109,7 +109,7 @@ static void recordThreadFun(void *arg) {
             memcpy(framebuf+20, &r.analog_stick_r.y, 4);
             fwrite(framebuf, 1, RECORDER_FRAME_SIZE, g_recordFile);
         }
-        svcSleepThread(5 * 1000000ULL); // ~200Hz 采样
+        svcSleepThread(getPadConfig().recorderFPS);
     }
     // 结束标记
     memset(framebuf, 0, RECORDER_FRAME_SIZE);

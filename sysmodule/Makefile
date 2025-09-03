@@ -55,7 +55,7 @@ CFLAGS	:=	-g -Wall -O2 -ffunction-sections \
 CFLAGS	+=	$(INCLUDE) -D__SWITCH__
 
 # Debugging options
-CFLAGS	+=	-D__DEBUG__
+#CFLAGS	+=	-D__DEBUG__
 
 CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions
 

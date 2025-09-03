@@ -13,6 +13,7 @@
 #include <cstring>
 #include <cstdio>
 #include "util/log.h"
+#include "gui/MacroFileView.hpp"
 
 
 #define PROGRAM_NAME "pad-macro"
@@ -27,12 +28,37 @@ static const char *CONFIG_FILE = "/config/pad-macro/config.ini";
 static const char *MACROS_DIR = "/switch/pad-macro/macros";
 
 // 配置数据结构
+typedef enum {
+    FPS_30,
+    FPS_60,
+    FPS_120,
+    FPS_240
+} FPSOpt;
+static FPSOpt string2FPSOpt(const std::string &s) {
+    if (s.empty()) return FPS_60;
+    if (!strcasecmp(s.c_str(), "FPS_30")) return FPS_30;
+    if (!strcasecmp(s.c_str(), "FPS_60")) return FPS_60;
+    if (!strcasecmp(s.c_str(), "FPS_120")) return FPS_120;
+    if (!strcasecmp(s.c_str(), "FPS_240")) return FPS_240;
+    return FPS_60;
+}
+static std::string FPSOpt2string(FPSOpt opt) {
+    switch (opt) {
+        case FPS_30: return "FPS_30";
+        case FPS_60: return "FPS_60";
+        case FPS_120: return "FPS_120";
+        case FPS_240: return "FPS_240";
+        default: return "FPS_60";
+    }
+}
 struct PadConfig
 {
     bool recorder_enable = false;
     bool player_enable = false;
     u64 recorder_btn = 0x0;
     u64 play_latest_btn = 0x0;
+    FPSOpt recorder_fps = FPS_60;
+    FPSOpt player_fps = FPS_60;
 };
 
 struct MacroItem
@@ -258,6 +284,10 @@ static void loadConfig()
                 g_config.pad.recorder_btn = hexStringTo64(value);
             else if (key == "play_latest_btn")
                 g_config.pad.play_latest_btn = hexStringTo64(value);
+            else if (key == "recorder_fps")
+                g_config.pad.recorder_fps = string2FPSOpt(value);
+            else if (key == "player_fps")
+                g_config.pad.player_fps = string2FPSOpt(value);
         }
         else if (section == "macros")
         {
@@ -299,6 +329,8 @@ static void saveConfig()
     iniString += std::string("recorder_btn=") + u64ToHexString(g_config.pad.recorder_btn) + "\n";
     // play_latest_btn saved as hex (so hexStringTo64 can accept 0x... or decimal)
     iniString += std::string("play_latest_btn=") + u64ToHexString(g_config.pad.play_latest_btn) + "\n";
+    iniString += std::string("recorder_fps=") + FPSOpt2string(g_config.pad.recorder_fps) + "\n";
+    iniString += std::string("player_fps=") + FPSOpt2string(g_config.pad.player_fps) + "\n";
     iniString += "[macros]\n";
 
     // write macros
@@ -416,6 +448,7 @@ public:
                 // Y to rename
                 } else if (keys & HidNpadButton_Y) {
                     // todo
+                    tsl::changeTo<GuiMacroFileView>(listItem, absPath);
                     return true;
                 // X to delete
                 } else if (keys & HidNpadButton_X) {
@@ -588,6 +621,54 @@ public:
             return false; });
         list->addItem(playLatestBtnListItem);
         log_debug("list pad section initialized");
+        // recorder_fps
+        tsl::elm::ListItem *recorderFpsListItem = new tsl::elm::ListItem("recorder_fps", FPSOpt2string(g_config.pad.recorder_fps));
+        recorderFpsListItem->setClickListener([recorderFpsListItem](u64 keys) {
+            FPSOpt opt = string2FPSOpt(recorderFpsListItem->getValue());
+            if (keys & HidNpadButton_Left) {
+                FPSOpt newOpt = opt == FPS_240 ? FPS_120 : (opt == FPS_120 ? FPS_60 : FPS_30);
+                if (opt == newOpt) return true; // no change
+                recorderFpsListItem->setValue(FPSOpt2string(newOpt));
+                g_config.pad.recorder_fps = newOpt;
+                saveConfig();
+                return true;
+            } else if (keys & HidNpadButton_Right) {
+                FPSOpt newOpt = opt == FPS_30 ? FPS_60 : (opt == FPS_60 ? FPS_120 : FPS_240);
+                if (opt == newOpt) return true; // no change
+                recorderFpsListItem->setValue(FPSOpt2string(newOpt));
+                g_config.pad.recorder_fps = newOpt;
+                saveConfig();
+                return true;
+            }
+            return false; });
+        list->addItem(recorderFpsListItem);
+        list->addItem(new tsl::elm::CustomDrawer([](tsl::gfx::Renderer *renderer, s32 x, s32 y, s32 w, s32 h) {
+            renderer->drawString("\uE0ED\uE0EEswitch", false, x + 50, y + 20, 15, renderer->a(tsl::style::color::ColorDescription));
+        }), 30);
+        // player_fps
+        tsl::elm::ListItem *playerFpsListItem = new tsl::elm::ListItem("player_fps", FPSOpt2string(g_config.pad.player_fps));
+        playerFpsListItem->setClickListener([playerFpsListItem](u64 keys) {
+            FPSOpt opt = string2FPSOpt(playerFpsListItem->getValue());
+            if (keys & HidNpadButton_Left) {
+                FPSOpt newOpt = opt == FPS_240 ? FPS_120 : (opt == FPS_120 ? FPS_60 : FPS_30);
+                if (opt == newOpt) return true; // no change
+                playerFpsListItem->setValue(FPSOpt2string(newOpt));
+                g_config.pad.player_fps = newOpt;
+                saveConfig();
+                return true;
+            } else if (keys & HidNpadButton_Right) {
+                FPSOpt newOpt = opt == FPS_30 ? FPS_60 : (opt == FPS_60 ? FPS_120 : FPS_240);
+                if (opt == newOpt) return true; // no change
+                playerFpsListItem->setValue(FPSOpt2string(newOpt));
+                g_config.pad.player_fps = newOpt;
+                saveConfig();
+                return true;
+            }
+            return false; });
+        list->addItem(playerFpsListItem);
+        list->addItem(new tsl::elm::CustomDrawer([](tsl::gfx::Renderer *renderer, s32 x, s32 y, s32 w, s32 h) {
+            renderer->drawString("\uE0ED\uE0EEswitch", false, x + 50, y + 20, 15, renderer->a(tsl::style::color::ColorDescription));
+        }), 30);
 
         // macros section
         list->addItem(new tsl::elm::CategoryHeader("macros | \uE0E0 pick combo | \uE0E3 pick macro | \uE0E2 del", true));
@@ -674,6 +755,8 @@ public:
             serviceClose(&g_service);
         }
         smExit();
+        fsdevUnmountAll();
+        fsExit();
         pmshellExit();
     }
 
@@ -708,6 +791,10 @@ public:
             return;
         }
         log_info("timeInitialize success");
+        fsInitialize();
+        log_info("fsInitialize success");
+        fsdevMountSdmc();
+        log_info("fsdevMountSdmc success");
         pmshellInitialize();
         smInitialize();
         if(isProgramRunning()) {

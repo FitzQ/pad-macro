@@ -60,8 +60,7 @@ bool player_play_file_with(const char *path, void (*apply)(const Frame24*, const
 		if (!read_frame24(f, &r)) break;
         apply(&l, &r);
 		frames++;
-		// svcSleepThread(16 * 1000000ULL); // ~60Hz default
-		svcSleepThread(5 * 1000000ULL); // ~200Hz default
+		svcSleepThread(getPadConfig().playerFPS);
 	}
 	fclose(f);
 	log_info("[player] replay done, frames=%llu", frames);
