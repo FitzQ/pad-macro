@@ -622,53 +622,27 @@ public:
         list->addItem(playLatestBtnListItem);
         log_debug("list pad section initialized");
         // recorder_fps
-        tsl::elm::ListItem *recorderFpsListItem = new tsl::elm::ListItem("recorder_fps", FPSOpt2string(g_config.pad.recorder_fps));
-        recorderFpsListItem->setClickListener([recorderFpsListItem](u64 keys) {
-            FPSOpt opt = string2FPSOpt(recorderFpsListItem->getValue());
-            if (keys & HidNpadButton_Left) {
-                FPSOpt newOpt = opt == FPS_240 ? FPS_120 : (opt == FPS_120 ? FPS_60 : FPS_30);
-                if (opt == newOpt) return true; // no change
-                recorderFpsListItem->setValue(FPSOpt2string(newOpt));
-                g_config.pad.recorder_fps = newOpt;
-                saveConfig();
-                return true;
-            } else if (keys & HidNpadButton_Right) {
-                FPSOpt newOpt = opt == FPS_30 ? FPS_60 : (opt == FPS_60 ? FPS_120 : FPS_240);
-                if (opt == newOpt) return true; // no change
-                recorderFpsListItem->setValue(FPSOpt2string(newOpt));
-                g_config.pad.recorder_fps = newOpt;
-                saveConfig();
-                return true;
-            }
-            return false; });
+        std::initializer_list<std::string> fpsOptions = { FPSOpt2string(FPS_30), FPSOpt2string(FPS_60), FPSOpt2string(FPS_120), FPSOpt2string(FPS_240) };
+        std::vector<std::string> fpsOptionsVec(fpsOptions.begin(), fpsOptions.end());
+        tsl::elm::NamedStepTrackBar *recorderFpsListItem = new tsl::elm::NamedStepTrackBar("recorder_fps", fpsOptions);
+        recorderFpsListItem->setProgress(std::distance(fpsOptionsVec.begin(), std::find(fpsOptionsVec.begin(), fpsOptionsVec.end(), FPSOpt2string(g_config.pad.recorder_fps))));
+        recorderFpsListItem->setValueChangedListener([fpsOptionsVec](u8 value) {
+            log_debug("recorderFpsListItem value changed to %d", fpsOptionsVec[value]);
+            FPSOpt opt = string2FPSOpt(fpsOptionsVec[value].c_str());
+            g_config.pad.recorder_fps = opt;
+            saveConfig();
+        });
         list->addItem(recorderFpsListItem);
-        list->addItem(new tsl::elm::CustomDrawer([](tsl::gfx::Renderer *renderer, s32 x, s32 y, s32 w, s32 h) {
-            renderer->drawString("\uE0ED\uE0EEswitch", false, x + 50, y + 20, 15, renderer->a(tsl::style::color::ColorDescription));
-        }), 30);
         // player_fps
-        tsl::elm::ListItem *playerFpsListItem = new tsl::elm::ListItem("player_fps", FPSOpt2string(g_config.pad.player_fps));
-        playerFpsListItem->setClickListener([playerFpsListItem](u64 keys) {
-            FPSOpt opt = string2FPSOpt(playerFpsListItem->getValue());
-            if (keys & HidNpadButton_Left) {
-                FPSOpt newOpt = opt == FPS_240 ? FPS_120 : (opt == FPS_120 ? FPS_60 : FPS_30);
-                if (opt == newOpt) return true; // no change
-                playerFpsListItem->setValue(FPSOpt2string(newOpt));
-                g_config.pad.player_fps = newOpt;
-                saveConfig();
-                return true;
-            } else if (keys & HidNpadButton_Right) {
-                FPSOpt newOpt = opt == FPS_30 ? FPS_60 : (opt == FPS_60 ? FPS_120 : FPS_240);
-                if (opt == newOpt) return true; // no change
-                playerFpsListItem->setValue(FPSOpt2string(newOpt));
-                g_config.pad.player_fps = newOpt;
-                saveConfig();
-                return true;
-            }
-            return false; });
+        tsl::elm::NamedStepTrackBar *playerFpsListItem = new tsl::elm::NamedStepTrackBar("player_fps", fpsOptions);
+        playerFpsListItem->setProgress(std::distance(fpsOptionsVec.begin(), std::find(fpsOptionsVec.begin(), fpsOptionsVec.end(), FPSOpt2string(g_config.pad.player_fps))));
+        playerFpsListItem->setValueChangedListener([fpsOptionsVec](u8 value) {
+            log_debug("playerFpsListItem value changed to %d", fpsOptionsVec[value]);
+            FPSOpt opt = string2FPSOpt(fpsOptionsVec[value].c_str());
+            g_config.pad.player_fps = opt;
+            saveConfig();
+        });
         list->addItem(playerFpsListItem);
-        list->addItem(new tsl::elm::CustomDrawer([](tsl::gfx::Renderer *renderer, s32 x, s32 y, s32 w, s32 h) {
-            renderer->drawString("\uE0ED\uE0EEswitch", false, x + 50, y + 20, 15, renderer->a(tsl::style::color::ColorDescription));
-        }), 30);
 
         // macros section
         list->addItem(new tsl::elm::CategoryHeader("macros | \uE0E0 pick combo | \uE0E3 pick macro | \uE0E2 del", true));
