@@ -1,3 +1,9 @@
-[submodule "overlay/libtesla"]
-	path = overlay/libtesla
+[submodule "libtesla"]
+	path = overlay/lib/libtesla
+	url = https://github.com/WerWolv/libtesla
+[submodule "overlay/lib/json"]
+	path = overlay/lib/json
+	url = https://github.com/nlohmann/json
+[submodule "overlay/lib/libtesla"]
+	path = overlay/lib/libtesla
 	url = https://github.com/WerWolv/libtesla
