@@ -124,33 +124,10 @@ public:
     }
 };
 
-class MacroFileViewOverlayFrame : public tsl::elm::OverlayFrame
-{
-public:
-    MacroFileViewOverlayFrame(const std::string &title, const std::string &subtitle)
-        : OverlayFrame(title, subtitle) {}
-
-    // Override the draw method to customize the overlay frame
-    virtual void draw(tsl::gfx::Renderer *renderer) override {
-        renderer->fillScreen(a(tsl::style::color::ColorFrameBackground));
-        renderer->drawRect(tsl::cfg::FramebufferWidth - 1, 0, 1, tsl::cfg::FramebufferHeight, a(0xF222));
-
-        renderer->drawString(this->m_title.c_str(), false, 20, 50, 30, a(tsl::style::color::ColorText));
-        renderer->drawString(this->m_subtitle.c_str(), false, 20, 70, 15, a(tsl::style::color::ColorDescription));
-
-        renderer->drawRect(15, tsl::cfg::FramebufferHeight - 73, tsl::cfg::FramebufferWidth - 30, 1, a(tsl::style::color::ColorText));
-        std::string footer = std::string("\uE0E1  ")+i18n_getString("A00H")+std::string("     \uE0F0  ")+i18n_getString("A00N")+std::string("     \uE0EF  ")+i18n_getString("A00O");
-        renderer->drawString(footer.c_str(), false, 30, 693, 23, a(tsl::style::color::ColorText));
-
-        if (this->m_contentElement != nullptr)
-            this->m_contentElement->frame(renderer);
-    }
-};
-
 class GuiMacroFileView : public tsl::Gui
 {
 private:
-    MacroFileViewOverlayFrame *frame;
+    tsl::elm::OverlayFrame *frame;
     tsl::elm::List *list;
     // pointer to the currently-displayed ListItem for the selected combo
     tsl::elm::ListItem *item;
@@ -164,7 +141,9 @@ public:
     virtual tsl::elm::Element *createUI() override
     {
         // Create the UI elements
-        frame = new MacroFileViewOverlayFrame(i18n_getString("A001"), i18n_getString("A00I")+"\n\uE0ED\uE0EE "+i18n_getString("A00P")+"\n\uE0E2  "+i18n_getString("A00Q"));
+        frame = new tsl::elm::OverlayFrame(i18n_getString("A001"),
+            i18n_getString("A00I")+"\n\uE0ED\uE0EE "+i18n_getString("A00P")+"\n\uE0E2  "+i18n_getString("A00Q"),
+            std::string("\uE0E1  ")+i18n_getString("A00H")+std::string("     \uE0F0  ")+i18n_getString("A00N")+std::string("     \uE0EF  ")+i18n_getString("A00O"));
         list = new tsl::elm::List();
         initContent();
         frame->setContent(list);

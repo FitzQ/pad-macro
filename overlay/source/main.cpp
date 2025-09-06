@@ -14,6 +14,7 @@
 #include <cstdio>
 #include <log.h>
 #include "gui/MacroFileView.hpp"
+#include "gui/Store.hpp"
 #include "i18n.hpp"
 
 
@@ -406,7 +407,11 @@ public:
     virtual tsl::elm::Element *createUI() override
     {
 
-        auto *rootFrame = new tsl::elm::OverlayFrame(i18n_getString("A001"), i18n_getString("A002") + "\n\uE0E0 " + i18n_getString("A00J") + " | \uE0E2 " + i18n_getString("A00K") + " | \uE0E3 " + i18n_getString("A00L"));
+        auto *rootFrame = new tsl::elm::OverlayFrame(i18n_getString("A001"),
+            i18n_getString("A002")
+            + "\n" + i18n_getString("A00W")
+            + "\n\uE0E0 " + i18n_getString("A00J") + " | \uE0E2 " + i18n_getString("A00K") + " | \uE0E3 " + i18n_getString("A00L"),
+            std::string("\uE0E1  ")+i18n_getString("A00H")+std::string("     \uE0E0  ")+i18n_getString("A00J")+std::string("     \uE0E5  ")+i18n_getString("A00R"));
         /* Open Sd card filesystem. */
         FsFileSystem fsSdmc;
         if (R_FAILED(fsOpenSdCardFileSystem(&fsSdmc)))
@@ -465,6 +470,15 @@ public:
         }
         rootFrame->setContent(list);
 
+        rootFrame->setClickListener([this](u64 keys){
+            if (keys & HidNpadButton_R) {
+                // R button pressed
+                log_info("R button pressed");
+                tsl::changeTo<Store>();
+                return true;
+            }
+            return false;
+        });
         return rootFrame;
     }
 };
@@ -485,7 +499,9 @@ public:
     virtual tsl::elm::Element *createUI() override
     {
         log_info("GuiKeyComboList createUI");
-        auto *rootFrame = new tsl::elm::OverlayFrame(i18n_getString("A001"), i18n_getString("A003")+"\n"+i18n_getString("A00M")+" | \uE0E0 "+i18n_getString("A00J"));
+        auto *rootFrame = new tsl::elm::OverlayFrame(i18n_getString("A001"),
+            i18n_getString("A003")+"\n"+i18n_getString("A00M")+" | \uE0E0 "+i18n_getString("A00J"),
+            "\uE0E1  "+i18n_getString("A00H")+"     \uE0E0  "+i18n_getString("A00J"));
         auto list = new tsl::elm::List();
         for (size_t i = 0; i < KEY_COMBO_LIST.size(); i++)
         {
@@ -529,7 +545,8 @@ public:
     virtual tsl::elm::Element *createUI() override
     {
         log_debug("GuiTest createUI, g_serviceConnected=%d", g_serviceConnected);
-        frame = new tsl::elm::OverlayFrame(i18n_getString("A001"), "v1.0.0");
+        frame = new tsl::elm::OverlayFrame(i18n_getString("A001"), "v2.0.0",
+            "\uE0E1  "+i18n_getString("A00H")+"     \uE0E0  "+i18n_getString("A00J"));
         list = new tsl::elm::List();
         initContent();
         frame->setContent(list);
@@ -732,7 +749,6 @@ public:
     {
         Result rc = 0;
 
-#if __DEBUG__
         static const SocketInitConfig socketInitConfig = {
             .tcp_tx_buf_size = 0x800,
             .tcp_rx_buf_size = 0x800,
@@ -746,7 +762,6 @@ public:
             .sb_efficiency = 1,
         };
         rc = socketInitialize(&socketInitConfig);
-#endif
 
         if (R_FAILED(rc)) {
             log_error("socketInitialize failed: %08X", rc);
