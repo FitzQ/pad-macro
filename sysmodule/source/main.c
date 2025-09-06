@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "util/log.h"
+#include <log.h>
 #include "ipc/ipc.h"
 #include "common.h"
 #include "controller.h"

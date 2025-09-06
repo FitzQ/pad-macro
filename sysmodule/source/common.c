@@ -15,7 +15,7 @@ static void listenThreadFun(void *arg) {
         char *macro_path = NULL;
         if (R_SUCCEEDED(rc) && (l.buttons != 0 || r.buttons != 0)) {
             if (playerEnable() && ((l.buttons | r.buttons) & getPlayLatestButtonMask()) == getPlayLatestButtonMask() && !recorder_is_recording() && !player_is_playing()) {
-                log_info("macro matched: %s", macro_path);
+                log_info("macro matched: latest");
                 // 执行宏
                 start_play(LATEST_MACRO_PATH);
                 // 间隔 1000ms

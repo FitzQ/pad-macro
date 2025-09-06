@@ -39,9 +39,9 @@ include $(DEVKITPRO)/libnx/switch_rules
 #---------------------------------------------------------------------------------
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
-SOURCES		:=	source source/ipc source/util
+SOURCES		:=	source source/ipc source/util ../common
 DATA		:=	data
-INCLUDES	:=	include
+INCLUDES	:=	include ../common
 #ROMFS	:=	romfs
 
 #---------------------------------------------------------------------------------
@@ -55,7 +55,7 @@ CFLAGS	:=	-g -Wall -O2 -ffunction-sections \
 CFLAGS	+=	$(INCLUDE) -D__SWITCH__
 
 # Debugging options
-#CFLAGS	+=	-D__DEBUG__
+CFLAGS	+=	-D__DEBUG__
 
 CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions
 

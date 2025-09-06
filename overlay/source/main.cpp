@@ -12,8 +12,9 @@
 #include <sstream>
 #include <cstring>
 #include <cstdio>
-#include "util/log.h"
+#include <log.h>
 #include "gui/MacroFileView.hpp"
+#include "i18n.hpp"
 
 
 #define PROGRAM_NAME "pad-macro"
@@ -405,7 +406,7 @@ public:
     virtual tsl::elm::Element *createUI() override
     {
 
-        auto *rootFrame = new tsl::elm::OverlayFrame("Pad Macro", "v1.0.0 - macro file browser");
+        auto *rootFrame = new tsl::elm::OverlayFrame(i18n_getString("A001"), i18n_getString("A002") + "\n\uE0E0 " + i18n_getString("A00J") + " | \uE0E2 " + i18n_getString("A00K") + " | \uE0E3 " + i18n_getString("A00L"));
         /* Open Sd card filesystem. */
         FsFileSystem fsSdmc;
         if (R_FAILED(fsOpenSdCardFileSystem(&fsSdmc)))
@@ -425,7 +426,6 @@ public:
         tsl::hlp::ScopeGuard fileGuard([&]
                                     { fsDirClose(&dir); });
         auto list = new tsl::elm::List();
-        list->addItem(new tsl::elm::CategoryHeader("macros \uE0E0 pick | \uE0E2 del | \uE0E3 view", true));
 
     for (s64 i = 0; i < entries_read; ++i)
         {
@@ -485,9 +485,8 @@ public:
     virtual tsl::elm::Element *createUI() override
     {
         log_info("GuiKeyComboList createUI");
-        auto *rootFrame = new tsl::elm::OverlayFrame("Pad Macro", "v1.0.0 - key combo browser");
+        auto *rootFrame = new tsl::elm::OverlayFrame(i18n_getString("A001"), i18n_getString("A003")+"\n"+i18n_getString("A00M")+" | \uE0E0 "+i18n_getString("A00J"));
         auto list = new tsl::elm::List();
-        list->addItem(new tsl::elm::CategoryHeader("key combos | \uE0E0 select"));
         for (size_t i = 0; i < KEY_COMBO_LIST.size(); i++)
         {
             log_info("list %zu/%zu", i, KEY_COMBO_LIST.size());
@@ -530,7 +529,7 @@ public:
     virtual tsl::elm::Element *createUI() override
     {
         log_debug("GuiTest createUI, g_serviceConnected=%d", g_serviceConnected);
-        frame = new tsl::elm::OverlayFrame("pad-macro", "v1.0.0");
+        frame = new tsl::elm::OverlayFrame(i18n_getString("A001"), "v1.0.0");
         list = new tsl::elm::List();
         initContent();
         frame->setContent(list);
@@ -566,7 +565,7 @@ public:
         log_debug("Initializing content...");
         tsl::Gui::removeFocus(nullptr);
         list->clear();
-        auto pmTLI = new tsl::elm::ToggleListItem("Program", isProgramRunning());
+        auto pmTLI = new tsl::elm::ToggleListItem(i18n_getString("A004"), isProgramRunning(), i18n_getString("A005"), i18n_getString("A006"));
         pmTLI->setStateChangedListener([this, pmTLI](bool state) {
             pmTLI->setState(state); // keep them in sync
             if (state) {
@@ -582,26 +581,23 @@ public:
         }
 
         // pad section
-        list->addItem(new tsl::elm::CategoryHeader("pad"));
-        list->addItem(new tsl::elm::CustomDrawer([](tsl::gfx::Renderer *renderer, s32 x, s32 y, s32 w, s32 h) {
-            renderer->drawString("\uE016  desc.", false, x + 5, y + 20, 15, renderer->a(tsl::style::color::ColorDescription));
-        }), 30);
+        list->addItem(new tsl::elm::CategoryHeader(i18n_getString("A007")));
         // recorder_enable toggle
-        tsl::elm::ToggleListItem *recorderEnableToggleListItem = new tsl::elm::ToggleListItem("recorder_enable", g_config.pad.recorder_enable);
+        tsl::elm::ToggleListItem *recorderEnableToggleListItem = new tsl::elm::ToggleListItem(i18n_getString("A008"), g_config.pad.recorder_enable, i18n_getString("A005"), i18n_getString("A006"));
         recorderEnableToggleListItem->setStateChangedListener([](bool state){
             g_config.pad.recorder_enable = state;
             saveConfig();
         });
         list->addItem(recorderEnableToggleListItem);
         // player_enable toggle
-        tsl::elm::ToggleListItem *playerEnableToggleListItem = new tsl::elm::ToggleListItem("player_enable", g_config.pad.player_enable);
+        tsl::elm::ToggleListItem *playerEnableToggleListItem = new tsl::elm::ToggleListItem(i18n_getString("A009"), g_config.pad.player_enable, i18n_getString("A005"), i18n_getString("A006"));
         playerEnableToggleListItem->setStateChangedListener([](bool state){
             g_config.pad.player_enable = state;
             saveConfig();
         });
         list->addItem(playerEnableToggleListItem);
         // recorder_btn 按键组合
-        tsl::elm::ListItem *recorderBtnListItem = new tsl::elm::ListItem("recorder_btn", comboStringToGlyph(maskToComboString(g_config.pad.recorder_btn)));
+        tsl::elm::ListItem *recorderBtnListItem = new tsl::elm::ListItem(i18n_getString("A00A"), comboStringToGlyph(maskToComboString(g_config.pad.recorder_btn)));
         recorderBtnListItem->setClickListener([recorderBtnListItem](u64 keys) {
             if (keys & HidNpadButton_A) {
                 // open recording gui (pass address so Gui can modify the value)
@@ -611,7 +607,7 @@ public:
             return false; });
         list->addItem(recorderBtnListItem);
         // play_latest_btn 按键组合
-        tsl::elm::ListItem *playLatestBtnListItem = new tsl::elm::ListItem("play_latest_btn", comboStringToGlyph(maskToComboString(g_config.pad.play_latest_btn)));
+        tsl::elm::ListItem *playLatestBtnListItem = new tsl::elm::ListItem(i18n_getString("A00B"), comboStringToGlyph(maskToComboString(g_config.pad.play_latest_btn)));
         playLatestBtnListItem->setClickListener([playLatestBtnListItem](u64 keys) {
             if (keys & HidNpadButton_A) {
                 // open recording gui (pass address so Gui can modify the value)
@@ -624,7 +620,7 @@ public:
         // recorder_fps
         std::initializer_list<std::string> fpsOptions = { FPSOpt2string(FPS_30), FPSOpt2string(FPS_60), FPSOpt2string(FPS_120), FPSOpt2string(FPS_240) };
         std::vector<std::string> fpsOptionsVec(fpsOptions.begin(), fpsOptions.end());
-        tsl::elm::NamedStepTrackBar *recorderFpsListItem = new tsl::elm::NamedStepTrackBar("recorder_fps", fpsOptions);
+        tsl::elm::NamedStepTrackBar *recorderFpsListItem = new tsl::elm::NamedStepTrackBar("\uE0F5", fpsOptions);
         recorderFpsListItem->setProgress(std::distance(fpsOptionsVec.begin(), std::find(fpsOptionsVec.begin(), fpsOptionsVec.end(), FPSOpt2string(g_config.pad.recorder_fps))));
         recorderFpsListItem->setValueChangedListener([fpsOptionsVec](u8 value) {
             log_debug("recorderFpsListItem value changed to %d", fpsOptionsVec[value]);
@@ -634,7 +630,7 @@ public:
         });
         list->addItem(recorderFpsListItem);
         // player_fps
-        tsl::elm::NamedStepTrackBar *playerFpsListItem = new tsl::elm::NamedStepTrackBar("player_fps", fpsOptions);
+        tsl::elm::NamedStepTrackBar *playerFpsListItem = new tsl::elm::NamedStepTrackBar("\uE076", fpsOptions);
         playerFpsListItem->setProgress(std::distance(fpsOptionsVec.begin(), std::find(fpsOptionsVec.begin(), fpsOptionsVec.end(), FPSOpt2string(g_config.pad.player_fps))));
         playerFpsListItem->setValueChangedListener([fpsOptionsVec](u8 value) {
             log_debug("playerFpsListItem value changed to %d", fpsOptionsVec[value]);
@@ -645,10 +641,7 @@ public:
         list->addItem(playerFpsListItem);
 
         // macros section
-        list->addItem(new tsl::elm::CategoryHeader("macros | \uE0E0 pick combo | \uE0E3 pick macro | \uE0E2 del", true));
-        list->addItem(new tsl::elm::CustomDrawer([](tsl::gfx::Renderer *renderer, s32 x, s32 y, s32 w, s32 h) {
-            renderer->drawString("\uE016  desc.", false, x + 5, y + 20, 15, renderer->a(tsl::style::color::ColorDescription));
-        }), 30);
+        list->addItem(new tsl::elm::CategoryHeader(i18n_getString("A00C")+" | \uE0E0 "+i18n_getString("A00F") + " | \uE0E3 " + i18n_getString("A00E") + " | \uE0E2 " + i18n_getString("A00K"), true));
         // 显示所有宏映射
         for (size_t i = 0; i < g_config.macros.size(); ++i)
         {
@@ -678,12 +671,12 @@ public:
             list->addItem(macroListItem);
         }
         // 新增宏映射
-        tsl::elm::ListItem *addMacroItem = new tsl::elm::ListItem("Add Mapping", "+");
+        tsl::elm::ListItem *addMacroItem = new tsl::elm::ListItem(i18n_getString("A00D"), "+");
         addMacroItem->setClickListener([this, addMacroItem](u64 keys) mutable {
             if (keys & HidNpadButton_A) {
                 g_config.macros.push_back(MacroItem{0x0, ""});
                 size_t idx = g_config.macros.size() - 1;
-                tsl::elm::ListItem *newMacroListItem = new tsl::elm::ListItem(comboStringToGlyph("Y") + " pick macro", comboStringToGlyph("A") + " pick combo");
+                tsl::elm::ListItem *newMacroListItem = new tsl::elm::ListItem("\uE0A3 "+i18n_getString("A00E"), "\uE0A0 "+i18n_getString("A00F"));
                 newMacroListItem->setClickListener([this, newMacroListItem, idx](u64 keys) {
                         // edit macro file
                         if (keys & HidNpadButton_A) {
@@ -699,7 +692,7 @@ public:
                         if (keys & HidNpadButton_X) {
                             g_config.macros.erase(g_config.macros.begin() + idx);
                             saveConfig();
-                            newMacroListItem->setText("deleted");
+                            newMacroListItem->setText(i18n_getString("A00G"));
                             newMacroListItem->setClickListener([](u64){ return false; });
                             return true;
                         }
@@ -729,6 +722,7 @@ public:
             serviceClose(&g_service);
         }
         smExit();
+        setExit();
         fsdevUnmountAll();
         fsExit();
         pmshellExit();
@@ -769,6 +763,7 @@ public:
         log_info("fsInitialize success");
         fsdevMountSdmc();
         log_info("fsdevMountSdmc success");
+        setInitialize();
         pmshellInitialize();
         smInitialize();
         if(isProgramRunning()) {

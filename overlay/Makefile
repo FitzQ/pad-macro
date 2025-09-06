@@ -42,9 +42,9 @@ APP_VERSION :=	1.0.0
 
 TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
-SOURCES		:=	source source/util
+SOURCES		:=	source source/util ../common
 DATA		:=	data
-INCLUDES	:=	include libtesla/include
+INCLUDES	:=	include libtesla/include ../common
 
 NO_ICON		:=  1
 
@@ -59,7 +59,7 @@ CFLAGS	:=	-g -Wall -O2 -ffunction-sections \
 CFLAGS	+=	$(INCLUDE) -D__SWITCH__
 
 # Debugging options
-#CFLAGS	+=	-D__DEBUG__
+CFLAGS	+=	-D__DEBUG__
 
 CXXFLAGS	:= $(CFLAGS) -fno-exceptions -std=c++20
 

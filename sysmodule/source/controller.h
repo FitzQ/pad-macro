@@ -6,7 +6,7 @@
 #include <switch.h>
 #include <switch/services/hid.h> // 包含键盘按键定义
 #include <switch/services/hiddbg.h>
-#include "util/log.h"
+#include <log.h>
 #include <switch/types.h>
 
 // void update_hdls_state(const HiddbgHdlsState *args, bool is_long_press);

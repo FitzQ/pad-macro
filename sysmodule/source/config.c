@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-#include "util/log.h"
+#include <log.h>
 
 #define CONF_FILE_PATH "sdmc:/config/pad-macro/config.ini"
 

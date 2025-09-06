@@ -7,8 +7,10 @@
 #include <sstream>
 #include <cstring>
 #include <cstdio>
-#include "../util/log.h"
+#include <log.h>
 #include <iostream>
+#include <HdlsStatePairQueue.h>
+#include "../i18n.hpp"
 using namespace std;
 static string g_filePath;
 struct ButtonGlyph {
@@ -31,11 +33,7 @@ constexpr array<ButtonGlyph, 18> ButtonGlyphArr = {{
     { HidNpadButton_Left, "\uE0B1" },
     { HidNpadButton_Up, "\uE0AF" },
     { HidNpadButton_Right, "\uE0B2" },
-    { HidNpadButton_Down, "\uE0B0" },
-
-    { HidNpadButton_AnySL, "\uE0A8" },
-    { HidNpadButton_AnySR, "\uE0A9" }
-
+    { HidNpadButton_Down, "\uE0B0" }
 }};
 
 constexpr array<ButtonGlyph, 18> PseudoButtonGlyphArr = {{
@@ -43,15 +41,17 @@ constexpr array<ButtonGlyph, 18> PseudoButtonGlyphArr = {{
     { HidNpadButton_StickLUp, "\uE092" },
     { HidNpadButton_StickLRight, "\uE090" },
     { HidNpadButton_StickLDown, "\uE093" },
-    { HidNpadButton_StickRLeft, "\uE091" },
-    { HidNpadButton_StickRUp, "\uE092" },
-    { HidNpadButton_StickRRight, "\uE090" },
-    { HidNpadButton_StickRDown, "\uE093" }
+    
+    // { HidNpadButton_StickRLeft, "\uE091" },
+    // { HidNpadButton_StickRUp, "\uE092" },
+    // { HidNpadButton_StickRRight, "\uE090" },
+    // { HidNpadButton_StickRDown, "\uE093" }
+    // libnx type mismatch
+    { HidNpadButton_LeftSL, "\uE091" },
+    { HidNpadButton_LeftSR, "\uE092" },
+    { HidNpadButton_RightSL, "\uE090" },
+    { HidNpadButton_RightSR, "\uE093" }
 }};
-typedef struct {
-    u64 mask;
-    s32 position[4]; //lx, ly, rx, ry
-} Frame24;
 
 static string maskToGlyph(const u64 mask) {
     string glyphCombo;
@@ -80,9 +80,78 @@ static string pseudoMaskToGlyph(const u64 mask) {
     return glyphCombo;
 }
 
+class StatePairListItem : public tsl::elm::ListItem
+{
+public:
+    HdlsStatePair statePair;
+    StatePairListItem(HdlsStatePair& statePair, const std::string& text, const std::string& value = "")
+    : ListItem(text, value), statePair(statePair) {
+        this->setClickListener([this](u64 keys) {
+            if (keys & HidNpadButton_X) {
+                this->statePair.count = 0;
+                this->setValue(to_string(0));
+            }
+            return false;
+        });
+    }
+    
+    virtual bool handleInput(u64 keysDown, u64 keysHeld, const HidTouchState &touchPos, HidAnalogStickState leftJoyStick, HidAnalogStickState rightJoyStick) override {
+        static u32 tick = 0;
+
+        if (keysHeld & HidNpadButton_AnyLeft && keysHeld & HidNpadButton_AnyRight) {
+            tick = 0;
+            return true;
+        }
+
+        if (keysHeld & (HidNpadButton_AnyLeft | HidNpadButton_AnyRight)) {
+            if ((tick == 0 || tick > 20) && (tick % 3) == 0) {
+                if (keysHeld & HidNpadButton_AnyLeft && this->statePair.count > 0) {
+                    this->statePair.count = max(0, --this->statePair.count);
+                    this->setValue(to_string(this->statePair.count));
+                } else if (keysHeld & HidNpadButton_AnyRight) {
+                    this->statePair.count++;
+                    this->setValue(to_string(this->statePair.count));
+                } else {
+                    return false;
+                }
+            }
+            tick++;
+            return true;
+        } else {
+            tick = 0;
+        }
+        return false;
+    }
+};
+
+class MacroFileViewOverlayFrame : public tsl::elm::OverlayFrame
+{
+public:
+    MacroFileViewOverlayFrame(const std::string &title, const std::string &subtitle)
+        : OverlayFrame(title, subtitle) {}
+
+    // Override the draw method to customize the overlay frame
+    virtual void draw(tsl::gfx::Renderer *renderer) override {
+        renderer->fillScreen(a(tsl::style::color::ColorFrameBackground));
+        renderer->drawRect(tsl::cfg::FramebufferWidth - 1, 0, 1, tsl::cfg::FramebufferHeight, a(0xF222));
+
+        renderer->drawString(this->m_title.c_str(), false, 20, 50, 30, a(tsl::style::color::ColorText));
+        renderer->drawString(this->m_subtitle.c_str(), false, 20, 70, 15, a(tsl::style::color::ColorDescription));
+
+        renderer->drawRect(15, tsl::cfg::FramebufferHeight - 73, tsl::cfg::FramebufferWidth - 30, 1, a(tsl::style::color::ColorText));
+        std::string footer = std::string("\uE0E1  ")+i18n_getString("A00H")+std::string("     \uE0F0  ")+i18n_getString("A00N")+std::string("     \uE0EF  ")+i18n_getString("A00O");
+        renderer->drawString(footer.c_str(), false, 30, 693, 23, a(tsl::style::color::ColorText));
+
+        if (this->m_contentElement != nullptr)
+            this->m_contentElement->frame(renderer);
+    }
+};
+
 class GuiMacroFileView : public tsl::Gui
 {
 private:
+    MacroFileViewOverlayFrame *frame;
+    tsl::elm::List *list;
     // pointer to the currently-displayed ListItem for the selected combo
     tsl::elm::ListItem *item;
 
@@ -95,11 +164,16 @@ public:
     virtual tsl::elm::Element *createUI() override
     {
         // Create the UI elements
-        auto *rootFrame = new tsl::elm::OverlayFrame("Pad Macro", "v1.0.0 - MacroFileView");
-        auto *list = new tsl::elm::List();
-        list->addItem(new tsl::elm::CustomDrawer([](tsl::gfx::Renderer *renderer, s32 x, s32 y, s32 w, s32 h) {
-            renderer->drawString("\uE016 pressed buttons with kept number of frames", false, x + 5, y + 20, 15, renderer->a(tsl::style::color::ColorDescription));
-        }), 30);
+        frame = new MacroFileViewOverlayFrame(i18n_getString("A001"), i18n_getString("A00I")+"\n\uE0ED\uE0EE "+i18n_getString("A00P")+"\n\uE0E2  "+i18n_getString("A00Q"));
+        list = new tsl::elm::List();
+        initContent();
+        frame->setContent(list);
+        return frame;
+    }
+
+    virtual void initContent() {
+        tsl::Gui::removeFocus(nullptr);
+        list->clear();
         // list->addItem(new tsl::elm::ListItem("1\uE060\uE061\uE062\uE063\uE064\uE065\uE066\uE067\uE068\uE069\uE06A\uE06B\uE06C\uE06D\uE06E\uE06F"));
         // list->addItem(new tsl::elm::ListItem("2\uE070\uE071\uE072\uE073\uE074\uE075\uE076\uE077\uE078 \uE079\uE07A\uE07B\uE07C \uE07D\uE07E\uE07F"));
         // list->addItem(new tsl::elm::ListItem("3\uE080\uE081\uE082\uE083\uE084\uE085\uE086\uE087\uE088\uE089 \uE08A\uE08B \uE08C\uE08D\uE08E\uE08F"));
@@ -118,49 +192,42 @@ public:
         if (!file)
         {
             log_error("Failed to open file: %s", ("sdmc:" + g_filePath).c_str());
-            return rootFrame;
+            return;
         }
-
-        Frame24 last[2], current[2];
-        u64 readSize = 0, count = 0;
-        bool lls = false, lrs = false, cls = false, crs = false;
-        while (fread(current, sizeof(Frame24), 2, file) == 2)
-        {
-            cls = current[0].position[0] || current[0].position[1]; //left stick
-            crs = current[1].position[2] || current[1].position[3]; //right stick
-            if (count == 0) {
-                last[0] = current[0];
-                last[1] = current[1];
-                lls = cls;
-                lrs = crs;
-                count++;
-                log_info("Read frame: %016lX %016lX", last[0].mask, last[1].mask);
-                continue;
-            }
-            if (current[0].mask != last[0].mask || current[1].mask != last[1].mask || cls != lls || crs != lrs) {
-                log_info("Read frame: %016lX %016lX", last[0].mask, last[1].mask);
-                string lb = maskToGlyph(last[0].mask);
-                string rb = maskToGlyph(last[1].mask);
-                string ls = lls ? string("\uE0C1").append(pseudoMaskToGlyph(last[0].mask)) : ""; //left stick position not 0
-                string rs = lrs ? string("\uE0C2").append(pseudoMaskToGlyph(last[1].mask)) : ""; // right stick position not 0
-                list->addItem(new tsl::elm::ListItem(lb.append(rb).append(ls).append(rs), to_string(count)));
-                last[0] = current[0];
-                last[1] = current[1];
-                lls = cls;
-                lrs = crs;
-                count = 1;
-                continue;
-            }
-            count++;
-        }
+        do {
+            HdlsStatePair statePair = {0};
+            size_t n = fread(&statePair, 1, sizeof(HdlsStatePair), file);
+            if (n != sizeof(HdlsStatePair)) break;
+            string lb = maskToGlyph(statePair.left.buttons);
+            string rb = maskToGlyph(statePair.right.buttons);
+            string ls = (statePair.left.analog_stick_l.x != 0 || statePair.left.analog_stick_l.y != 0) ?
+                string("\uE0C1").append(pseudoMaskToGlyph(statePair.left.buttons)) : ""; //left stick position not 0
+            string rs = (statePair.right.analog_stick_r.x != 0 || statePair.left.analog_stick_r.y != 0) ?
+                string("\uE0C2").append(pseudoMaskToGlyph(statePair.right.buttons)) : ""; // right stick position not 0
+            string text;
+            text.append(lb.c_str());text.append(rb.c_str());text.append(ls.c_str());text.append(rs.c_str());
+            tsl::elm::ListItem *item = new StatePairListItem(statePair, text.empty() ? " " : text, to_string(statePair.count));
+            list->addItem(item);
+        } while(1);
         fclose(file);
-        log_info("Read frame: %016lX %016lX", last[0].mask, last[1].mask);
-        string lb = maskToGlyph(last[0].mask);
-        string rb = maskToGlyph(last[1].mask);
-        string ls = lls ? string("\uE0C1").append(pseudoMaskToGlyph(last[0].mask)) : ""; //left stick position not 0
-        string rs = lrs ? string("\uE0C2").append(pseudoMaskToGlyph(last[1].mask)) : ""; // right stick position not 0
-        list->addItem(new tsl::elm::ListItem(lb.append(rb).append(ls).append(rs), to_string(count)));
-        rootFrame->setContent(list);
-        return rootFrame;
+        frame->setClickListener([this](u64 keys){
+            if (keys & HidNpadButton_Minus) {
+                this->initContent();
+            } else if (keys & HidNpadButton_Plus) {
+                FILE* file = fopen(("sdmc:" + g_filePath).c_str(), "wb");
+                u32 index = 0; StatePairListItem *item;
+                while((item = (StatePairListItem*)this->list->getItemAtIndex(index))) {
+                    if (item->statePair.count == 0) {
+                        index++;
+                        continue;
+                    }
+                    fwrite(&item->statePair, 1, sizeof(item->statePair), file);
+                    index++;
+                }
+                fclose(file);
+                this->initContent();
+            }
+            return false;
+        });
     }
 };

@@ -1,7 +1,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "../util/log.h"
+#include <log.h>
 #include "../config.h"
 
 #include "ipc.h"
