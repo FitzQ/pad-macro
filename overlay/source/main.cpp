@@ -618,7 +618,8 @@ public:
         recorderBtnListItem->setClickListener([recorderBtnListItem](u64 keys) {
             if (keys & HidNpadButton_A) {
                 // open recording gui (pass address so Gui can modify the value)
-                tsl::changeTo<GuiKeyComboList>((recorderBtnListItem), &g_config.pad.recorder_btn);
+                tsl::changeTo<ComboSet>(recorderBtnListItem, nullptr, &g_config.pad.recorder_btn);
+                log_info("when this code excuted?");
                 return true;
             }
             return false; });
@@ -628,7 +629,8 @@ public:
         playLatestBtnListItem->setClickListener([playLatestBtnListItem](u64 keys) {
             if (keys & HidNpadButton_A) {
                 // open recording gui (pass address so Gui can modify the value)
-                tsl::changeTo<GuiKeyComboList>(playLatestBtnListItem, &g_config.pad.play_latest_btn);
+                tsl::changeTo<ComboSet>(playLatestBtnListItem, nullptr, &g_config.pad.play_latest_btn);
+                log_info("when this code excuted?");
                 return true;
             }
             return false; });
@@ -789,8 +791,11 @@ public:
     }
 
     virtual void onShow() override {} // Called before overlay wants to change from invisible to visible state
-    virtual void onHide() override {} // Called before overlay wants to change from visible to invisible state
 
+    // Called before overlay wants to change from visible to invisible state
+    virtual void onHide() override {
+        saveConfig();
+    }
     virtual std::unique_ptr<tsl::Gui> loadInitialGui() override
     {
         return initially<GuiTest>(); // Initial Gui to load. It's possible to pass arguments to it's constructor like this

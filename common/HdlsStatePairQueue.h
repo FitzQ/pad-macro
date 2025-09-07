@@ -1,3 +1,5 @@
+
+#pragma once
 #include <switch.h>
 
 #include <stdio.h>
