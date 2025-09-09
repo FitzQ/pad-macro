@@ -1,6 +1,6 @@
 #include "common.h"
 #include "controller.h"
-#define LATEST_MACRO_PATH "sdmc:/switch/pad-macro/macros/latest.bin"
+#define LATEST_MACRO_PATH "sdmc:/config/pad-macro/macros/latest.bin"
 
 static Thread listen_thread;         // 监听线程
 static alignas(0x1000) u8 listen_thread_stack[0x4000]; // 16KB 栈

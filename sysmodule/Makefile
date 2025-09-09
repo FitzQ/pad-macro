@@ -176,7 +176,7 @@ $(BUILD):
 	@cp toolbox.json out/atmosphere/contents/0100000000C0FFEE/toolbox.json
 	@mkdir -p out/config/pad-macro
 	@cp config.ini out/config/pad-macro/config.ini
-	@mkdir -p out/switch/pad-macro/macros
+	@mkdir -p out/config/pad-macro/macros
 
 #---------------------------------------------------------------------------------
 clean:

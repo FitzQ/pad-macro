@@ -32,7 +32,7 @@ make CFLAGS+=" -DENABLE_FULL_LOG=1"
 
 文件路径与配置
 - Overlay 写入：`sdmc:/config/pad-macro/config.ini`。
-- 宏文件目录：`sdmc:/switch/pad-macro/macros/`。录制生成 `latest.bin`，确认后复制为时间戳文件。
+- 宏文件目录：`sdmc:/config/pad-macro/macros/`。录制生成 `latest.bin`，确认后复制为时间戳文件。
 
 示例 config.ini
 ```ini
@@ -43,7 +43,7 @@ recorder_btn=0x30
 play_latest_btn=0x40
 
 [macros]
-0x30=/switch/pad-macro/macros/20250828-123456.bin
+0x30=/config/pad-macro/macros/20250828-123456.bin
 ```
 
 常见问题与排查

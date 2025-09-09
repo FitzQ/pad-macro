@@ -16,10 +16,10 @@
     recorder_btn=0x30
     play_latest_btn=0x40
     [macros]
-    0x30=/switch/pad-macro/macros/example.bin
+    0x30=/config/pad-macro/macros/example.bin
 
 - 宏文件目录（录好的二进制宏）：
-  - sdmc:/switch/pad-macro/macros/
+  - sdmc:/config/pad-macro/macros/
   - overlay 会生成一个 `latest.bin` 作为临时录制文件，并在确认后复制为时间戳文件放到该目录下。
 
 构建 (Build)

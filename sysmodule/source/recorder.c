@@ -23,8 +23,8 @@ static alignas(0x1000) u8 recordThreadReadStack[0x2000]; // 8KB 栈
 static alignas(0x1000) u8 recordThreadWriteStack[0x2000]; // 8KB 栈
 
 #define RECORDER_FRAME_SIZE 24
-#define LATEST_FILE_PATH "/switch/pad-macro/macros/latest.bin"
-#define CURRENT_FILE_PATH "/switch/pad-macro/macros/%s"
+#define LATEST_FILE_PATH "/config/pad-macro/macros/latest.bin"
+#define CURRENT_FILE_PATH "/config/pad-macro/macros/%s"
 static FILE *g_recordFile = NULL;
 
 // function declarations

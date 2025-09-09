@@ -26,7 +26,7 @@ struct FileInfo {
 static bool g_curlInitialized = false;
 static CURL *g_curl = nullptr;
 static std::string baseUrl = "http://121.43.66.100:9090/pad-macro/";
-static std::string downloadDir = "/switch/pad-macro/macros/";
+static std::string downloadDir = "/config/pad-macro/macros/";
 
 size_t write_callback(char* ptr, size_t size, size_t nmemb, void* userdata) {
     // ptr: 指向接收到数据的指针
@@ -60,17 +60,42 @@ size_t write_file_callback(char* ptr, size_t size, size_t nmemb, void* userdata)
     FILE* fp = (FILE*)userdata;
     return fwrite(ptr, 1, real_size, fp);
 }
-
-void downloadFile(const char* url, const char* outputPath) {
-    log_info("Downloading file from %s to %s", url, outputPath);
-    curl_easy_setopt(g_curl, CURLOPT_URL, url);
-    FILE *file = fopen(outputPath, "wb");
-    curl_easy_setopt(g_curl, CURLOPT_WRITEFUNCTION, write_file_callback);
-    curl_easy_setopt(g_curl, CURLOPT_WRITEDATA, file);
-    curl_easy_perform(g_curl);
-    fclose(file);
-    log_info("Finished downloading file from %s to %s", url, outputPath);
-}
+// struct DownloadFileParam {
+//     std::string url;
+//     std::string outputPath;
+//     tsl::elm::ListItem* list;
+//     bool downloading = false;
+//     Event reqEvent = {0};
+// } downloadFileParam;
+// // DownloadFileParam downloadFileParam;
+// Thread downloadThread;
+// void downloadFilePoll(void *args) {
+//     while(1) {
+//         eventWait(&downloadFileParam.reqEvent, UINT64_MAX);
+//         eventClear(&downloadFileParam.reqEvent);
+//         downloadFileParam.downloading = true;
+//         const char *url = downloadFileParam.url.c_str();
+//         const char *outputPath = downloadFileParam.outputPath.c_str();
+//         log_info("Downloading file from %s to %s", url, outputPath);
+//         downloadFileParam.list->setValue(i18n_getString("A00X"));
+//         curl_easy_setopt(g_curl, CURLOPT_URL, url);
+//         FILE *file = fopen(outputPath, "wb");
+//         curl_easy_setopt(g_curl, CURLOPT_WRITEFUNCTION, write_file_callback);
+//         curl_easy_setopt(g_curl, CURLOPT_WRITEDATA, file);
+//         curl_easy_perform(g_curl);
+//         fclose(file);
+//         downloadFileParam.list->setValue(i18n_getString("A00Y"));
+//         downloadFileParam.downloading = false;
+//     }
+// }
+// static void downloadFile() {
+//     if (!downloadThread.handle) {
+//         eventCreate(&downloadFileParam.reqEvent, false);
+//         threadCreate(&downloadThread, downloadFilePoll, nullptr, nullptr, 0x40000, 0x2c, -2);
+//         threadStart(&downloadThread);
+//     }
+//     eventFire(&downloadFileParam.reqEvent);
+// }
 
 vector<FileInfo> openFolder(const char* url) {
     log_info("Opening folder: %s", url);
@@ -118,10 +143,14 @@ public:
                 if (keys & HidNpadButton_A) {
                     if (isFile) {
                         log_info("Clicked on file: %s", file.name.c_str());
-                        string escapedUrl = this->url + curl_easy_escape(g_curl, file.name.c_str(), 0);
-                        listItem->setValue(i18n_getString("A00X"));
-                        downloadFile(escapedUrl.c_str(), (downloadDir + file.name).c_str());
-                        listItem->setValue(i18n_getString("A00Y"));
+                        // if (downloadFileParam.downloading) {
+                        //     return true;
+                        // }
+                        // string escapedUrl = this->url + curl_easy_escape(g_curl, file.name.c_str(), 0);
+                        // downloadFileParam.url = escapedUrl;
+                        // downloadFileParam.outputPath = downloadDir + file.name;
+                        // downloadFileParam.list = listItem;
+                        // downloadFile();
                     } else {
                         log_info("Clicked on folder: %s", file.name.c_str());
                         string escapedUrl = this->url + curl_easy_escape(g_curl, file.name.c_str(), 0) + "/";

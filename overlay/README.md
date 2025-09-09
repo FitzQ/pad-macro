@@ -19,10 +19,10 @@
 		play_latest_btn=0x40
 
 		[macros]
-		0x30=/switch/pad-macro/macros/example.bin
+		0x30=/config/pad-macro/macros/example.bin
 		```
 - 宏文件目录：
-	- `sdmc:/switch/pad-macro/macros/`
+	- `sdmc:/config/pad-macro/macros/`
 	- 录制时会先写入 `latest.bin`，确认后复制为时间戳文件。
 
 构建说明

@@ -9,6 +9,7 @@
 #include <vector>
 #include <HdlsStatePairQueue.h>
 #include "util.hpp"
+#include "../config.hpp"
 
 using json = nlohmann::json;
 using namespace std;
@@ -58,7 +59,12 @@ public:
             text.append(lb.c_str());text.append(rb.c_str());text.append(ls.c_str());text.append(rs.c_str());
             if (!text.empty()) {
             // renderer->drawString("Hello :)", false, x + 250, y + 70, 20, renderer->a(0xFF0F));
-                r->drawString(text.empty() ? " " : text.c_str(), false, x + 30, y + 120, 100, a(tsl::style::color::ColorText));
+                log_info("size: %d,", text.size());
+                size_t rows = text.size() / 3 / 3 + 1;
+                for (size_t i = 0; i < rows; ++i) {
+                    string temp = text.substr(i * 3 * 3, 3 * 3);
+                    r->drawString(temp.c_str(), false, x + 30, y + 120 + (i * 110), 100, a(tsl::style::color::ColorText));
+                }
             }
         });
         frame->setContent(customDrawer);
@@ -74,7 +80,7 @@ public:
             } else {
                 *mask = ((newStatePair.left.buttons | newStatePair.right.buttons) & 0xFFFF);
                 item->setValue(maskToGlyph(*mask));
-                // todo saveConfig();
+                saveConfig();
             }
             tsl::goBack();
             return true;
@@ -83,7 +89,6 @@ public:
             tsl::goBack();
             return true;
         }
-        log_info("left button: %llx, right button: %llx, keys down: %llx", newStatePair.left.buttons, newStatePair.right.buttons, keysDown);
         newStatePair.left.analog_stick_l.x = abs(newStatePair.left.analog_stick_l.x) <= abs(leftJoyStick.x) ? leftJoyStick.x : newStatePair.left.analog_stick_l.x;
         newStatePair.left.analog_stick_l.y = abs(newStatePair.left.analog_stick_l.y) <= abs(leftJoyStick.y) ? leftJoyStick.y : newStatePair.left.analog_stick_l.y;
         newStatePair.right.analog_stick_r.x = abs(newStatePair.right.analog_stick_r.x) <= abs(rightJoyStick.x) ? rightJoyStick.x : newStatePair.right.analog_stick_r.x;
