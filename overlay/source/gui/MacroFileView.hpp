@@ -80,7 +80,7 @@ public:
     {
         // Create the UI elements
         frame = new tsl::elm::OverlayFrame(i18n_getString("A001"),
-            i18n_getString("A00I")+"\n\uE0ED\uE0EE "+i18n_getString("A00P")+"\n\uE0E2  "+i18n_getString("A00Q"),
+            i18n_getString("A00I")+"\n\uE0ED\uE0EE "+i18n_getString("A00P")+"\n\uE0E3  "+i18n_getString("B002")+" | \uE0E2  "+i18n_getString("A00Q"),
             std::string("\uE0E1  ")+i18n_getString("A00H")+std::string("     \uE0F0  ")+i18n_getString("A00N")+std::string("     \uE0EF  ")+i18n_getString("A00O"));
         list = new tsl::elm::List();
         initContent();
